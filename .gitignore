@@ -1,0 +1,23 @@
+node_modules/
+frontend/node_modules/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+db.sqlite3
+
+# Node
+node_modules/
+.next/
+
+# Env
+.env
+.env.local
+
+# Static
+staticfiles/
+media/
+
+# OS
+.DS_Store

@@ -1,0 +1,41 @@
+version: '3.9'
+
+# Development: only run infrastructure services.
+# Run Django with: python manage.py runserver
+# Run Next.js with: npm run dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: prosticker_dev
+      POSTGRES_USER: prosticker
+      POSTGRES_PASSWORD: prosticker_dev_pass
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    volumes:
+      - minio_data_dev:/data
+    environment:
+      MINIO_ROOT_USER: prosticker_minio
+      MINIO_ROOT_PASSWORD: prosticker_minio_dev
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+volumes:
+  postgres_data_dev:
+  minio_data_dev:
