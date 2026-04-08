@@ -34,7 +34,7 @@ WeasyPrint==62.1
 # ─── Utils ────────────────────────────────────────────────────────────────────
 Pillow==10.3.0
 python-decouple==3.8
-django-uuid-upload-path==1.1.0
+django-uuid-upload-path==1.0.0
 python-dateutil==2.9.0.post0
 celery==5.4.0
 redis==5.0.4
