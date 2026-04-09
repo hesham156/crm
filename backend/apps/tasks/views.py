@@ -31,6 +31,11 @@ class BoardListCreateView(generics.ListCreateAPIView):
             members=user
         ) | Board.objects.filter(created_by=user)
 
+    def create(self, request, *args, **kwargs):
+        if not request.user.is_admin:
+            return Response({"detail": "Only admins can create boards."}, status=status.HTTP_403_FORBIDDEN)
+        return super().create(request, *args, **kwargs)
+
 
 class BoardDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = BoardSerializer
@@ -67,6 +72,11 @@ class BoardAutomationListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         board_id = self.kwargs.get("board_id")
         return BoardAutomation.objects.filter(board_id=board_id)
+
+    def create(self, request, *args, **kwargs):
+        if not request.user.is_admin:
+            return Response({"detail": "Only admins can create automations."}, status=status.HTTP_403_FORBIDDEN)
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         board_id = self.kwargs.get("board_id")
