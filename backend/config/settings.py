@@ -202,10 +202,6 @@ else:
 
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@prosticker.com")
 
-# ─── WhatsApp (Kapso CLI) ──────────────────────────────────────────────────────
-KAPSO_API_KEY = config("KAPSO_API_KEY", default="")
-KAPSO_PHONE_ID = config("KAPSO_PHONE_ID", default="")
-
 # ─── Internationalization ─────────────────────────────────────────────────────
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Riyadh"
@@ -228,3 +224,7 @@ LOGGING = {
         "apps": {"handlers": ["console"], "level": "DEBUG", "propagate": False},
     },
 }
+
+
+
+
