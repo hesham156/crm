@@ -127,6 +127,7 @@ if USE_MINIO:
     AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", default="prosticker-files")
     AWS_S3_ENDPOINT_URL = config("AWS_S3_ENDPOINT_URL")
     AWS_S3_USE_SSL = config("AWS_S3_USE_SSL", default=False, cast=bool)
+    AWS_S3_CUSTOM_DOMAIN = config("AWS_S3_CUSTOM_DOMAIN", default=None)
     AWS_DEFAULT_ACL = "public-read"
     AWS_S3_SIGNATURE_VERSION = "s3v4"
     AWS_QUERYSTRING_AUTH = False
@@ -200,6 +201,10 @@ else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@prosticker.com")
+
+# ─── WhatsApp (Kapso CLI) ──────────────────────────────────────────────────────
+KAPSO_API_KEY = config("KAPSO_API_KEY", default="")
+KAPSO_PHONE_ID = config("KAPSO_PHONE_ID", default="")
 
 # ─── Internationalization ─────────────────────────────────────────────────────
 LANGUAGE_CODE = "en-us"

@@ -191,14 +191,19 @@ class CommentListCreateView(generics.ListCreateAPIView):
             from apps.notifications.models import send_notification
             recipient_ids = [m.id for m in mentions]
             task = comment.task
-            send_notification(
-                recipient_ids=recipient_ids,
-                title=f"You were mentioned by {self.request.user.full_name_en}",
-                body=f"{task.title}: {comment.body[:50]}...",
-                type="mention",
-                link=f"/tasks/{task.board_id}?taskId={task.id}",
-                sender=self.request.user
-            )
+            try:
+                send_notification(
+                    recipient_ids=recipient_ids,
+                    title=f"You were mentioned by {self.request.user.full_name_en}",
+                    body=f"{task.title}: {comment.body[:50]}...",
+                    type="mention",
+                    link=f"/tasks/{task.board_id}?taskId={task.id}",
+                    sender=self.request.user
+                )
+            except Exception as e:
+                import logging
+                logger = logging.getLogger("apps")
+                logger.error(f"Failed to send mention notification: {e}", exc_info=True)
 
 
 class TimeLogCreateView(generics.CreateAPIView):

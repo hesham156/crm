@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usersApi } from "@/lib/api";
 import { useUIStore } from "@/store/useUIStore";
 import { useAuthStore } from "@/store/useAuthStore";
-import { Shield, Plus, Mail, Users, Edit, X, Save } from "lucide-react";
+import { Shield, Plus, Mail, Users, Edit, X, Save, Phone } from "lucide-react";
 import { format } from "date-fns";
 import { useState } from "react";
 import toast from "react-hot-toast";
@@ -29,7 +29,7 @@ export default function UsersSettingsPage() {
   const { mutate: saveUser, isPending } = useMutation({
     mutationFn: async (data: any) => {
       if (editingUser) {
-        throw new Error("تعديل المستخدمين غير مفعل حالياً للبيانات الحساسة"); // For safety in simple mock logic
+        await usersApi.update(editingUser.id, data);
       } else {
         await usersApi.create(data);
       }
@@ -52,6 +52,16 @@ export default function UsersSettingsPage() {
     }
   });
 
+  const openEditModal = (user: any) => {
+    setEditingUser(user);
+    setShowModal(true);
+  };
+
+  const openCreateModal = () => {
+    setEditingUser(null);
+    setShowModal(true);
+  };
+
   // Admin and Managers only
   if (currentUser?.role !== "admin" && currentUser?.role !== "manager") {
     return (
@@ -71,7 +81,7 @@ export default function UsersSettingsPage() {
             {isAr ? "إدارة الصلاحيات وحسابات الموظفين" : "Manage staff accounts and permissions"}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => { setEditingUser(null); setShowModal(true); }}>
+        <button className="btn btn-primary" onClick={openCreateModal}>
           <Plus size={16} />{isAr ? "مستخدم جديد" : "New User"}
         </button>
       </div>
@@ -109,6 +119,11 @@ export default function UsersSettingsPage() {
                           <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}>
                             <Mail size={12} /> {u.email}
                           </div>
+                          {u.phone && (
+                            <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+                              <Phone size={11} /> {u.phone}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -132,9 +147,7 @@ export default function UsersSettingsPage() {
                     </td>
                     <td><span style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>{u.date_joined && !isNaN(new Date(u.date_joined).getTime()) ? format(new Date(u.date_joined), "MMM d, yyyy") : "—"}</span></td>
                     <td>
-                      <button className="btn btn-ghost btn-sm" onClick={() => {
-                        toast.error(isAr ? "ميزة التعديل ستتوفر قريباً" : "Edit feature coming soon");
-                      }}>
+                      <button className="btn btn-ghost btn-sm" onClick={() => openEditModal(u)}>
                         <Edit size={16} />
                       </button>
                     </td>
@@ -150,33 +163,54 @@ export default function UsersSettingsPage() {
         <div className="modal-backdrop">
           <div className="modal animate-scale-in" style={{ maxWidth: "500px" }}>
             <div className="modal-header">
-              <h2 className="modal-title">{isAr ? "إضافة مستخدم جديد" : "Add New User"}</h2>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowModal(false)}>
+              <h2 className="modal-title">
+                {editingUser
+                  ? (isAr ? "تعديل المستخدم" : "Edit User")
+                  : (isAr ? "إضافة مستخدم جديد" : "Add New User")}
+              </h2>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setShowModal(false); setEditingUser(null); }}>
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={(e) => {
               e.preventDefault();
               const fd = new FormData(e.currentTarget);
-              const data = Object.fromEntries(fd.entries());
+              const data: Record<string, any> = {};
+              fd.forEach((value, key) => {
+                if (value !== "" && value !== undefined) {
+                  data[key] = value;
+                }
+              });
+              // Don't send password if editing and field is empty
+              if (editingUser && !data.password) {
+                delete data.password;
+              }
               saveUser(data);
             }}>
               <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
                 <div>
                   <label className="form-label">{isAr ? "الاسم الكامل (إنجليزي)" : "Full Name (En)"}</label>
-                  <input type="text" name="full_name_en" className="form-input" required />
+                  <input type="text" name="full_name_en" className="form-input" required defaultValue={editingUser?.full_name_en || ""} />
                 </div>
                 <div>
                   <label className="form-label">{isAr ? "البريد الإلكتروني" : "Email"}</label>
-                  <input type="email" name="email" className="form-input" required />
+                  <input type="email" name="email" className="form-input" required defaultValue={editingUser?.email || ""} />
                 </div>
                 <div>
-                  <label className="form-label">{isAr ? "كلمة المرور" : "Password"}</label>
-                  <input type="password" name="password" className="form-input" required />
+                  <label className="form-label">
+                    {editingUser
+                      ? (isAr ? "كلمة المرور (اتركها فارغة لعدم التغيير)" : "Password (leave blank to keep)")
+                      : (isAr ? "كلمة المرور" : "Password")}
+                  </label>
+                  <input type="password" name="password" className="form-input" {...(!editingUser ? { required: true } : {})} />
+                </div>
+                <div>
+                  <label className="form-label">{isAr ? "رقم الهاتف (واتساب)" : "Phone (WhatsApp)"}</label>
+                  <input type="tel" name="phone" className="form-input" placeholder="+966531549560" dir="ltr" defaultValue={editingUser?.phone || ""} />
                 </div>
                 <div>
                   <label className="form-label">{isAr ? "الدور" : "Role"}</label>
-                  <select name="role" className="form-input" required>
+                  <select name="role" className="form-input" required defaultValue={editingUser?.role || "sales"}>
                     <option value="sales">Sales</option>
                     <option value="designer">Designer</option>
                     <option value="production">Production</option>
@@ -186,7 +220,7 @@ export default function UsersSettingsPage() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>{isAr ? "إلغاء" : "Cancel"}</button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setShowModal(false); setEditingUser(null); }}>{isAr ? "إلغاء" : "Cancel"}</button>
                 <button type="submit" className="btn btn-primary" disabled={isPending}>
                   <Save size={18} /> {isAr ? "حفظ" : "Save"}
                 </button>
@@ -198,3 +232,4 @@ export default function UsersSettingsPage() {
     </div>
   );
 }
+

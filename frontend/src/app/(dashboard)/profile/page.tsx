@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/lib/api";
 import { useUIStore } from "@/store/useUIStore";
 import { useAuthStore } from "@/store/useAuthStore";
-import { User, Lock, Palette, Save, Moon, Sun, Globe } from "lucide-react";
+import { User, Lock, Palette, Save, Moon, Sun, Globe, Phone } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
 
@@ -17,10 +17,11 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState<"info" | "security" | "preferences">("info");
 
   const [name, setName] = useState(user?.full_name_en || "");
+  const [phone, setPhone] = useState(user?.phone || "");
 
   const { mutate: updateProfile, isPending: isUpdatingInfo } = useMutation({
     mutationFn: async () => {
-      const { data } = await authApi.updateMe({ full_name_en: name });
+      const { data } = await authApi.updateMe({ full_name_en: name, phone });
       return data;
     },
     onSuccess: (data) => {
@@ -86,6 +87,15 @@ export default function ProfilePage() {
                   <input type="email" className="form-input" defaultValue={user?.email} disabled />
                   <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "4px" }}>
                     {isAr ? "لا يمكنك تغيير البريد الإلكتروني" : "You cannot change your email address"}
+                  </p>
+                </div>
+                <div>
+                  <label className="form-label" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <Phone size={14} /> {isAr ? "رقم الهاتف (واتساب)" : "Phone (WhatsApp)"}
+                  </label>
+                  <input type="tel" className="form-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+966531549560" dir="ltr" />
+                  <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "4px" }}>
+                    {isAr ? "سيتم إرسال إشعارات العمل على هذا الرقم" : "Work notifications will be sent to this number"}
                   </p>
                 </div>
                 <div>

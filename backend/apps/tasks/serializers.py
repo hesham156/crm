@@ -173,8 +173,10 @@ class TaskSerializer(serializers.ModelSerializer):
                     link=f"/tasks/{task.board_id}?taskId={task.id}",
                     sender=self.context["request"].user
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+                logger = logging.getLogger("apps")
+                logger.error(f"Failed to send task assignment notification: {e}", exc_info=True)
 
         return task
 
@@ -208,8 +210,10 @@ class TaskSerializer(serializers.ModelSerializer):
                     link=f"/tasks/{task.board_id}?taskId={task.id}",
                     sender=self.context["request"].user
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                import logging
+                logger = logging.getLogger("apps")
+                logger.error(f"Failed to send task assignment notification: {e}", exc_info=True)
 
         # Log Activity Changes
         user = self.context["request"].user
@@ -314,8 +318,10 @@ class TaskSerializer(serializers.ModelSerializer):
                                     link=f"/tasks/{task.board_id}?taskId={task.id}",
                                     sender=user
                                 )
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                import logging
+                                logger = logging.getLogger("apps")
+                                logger.error(f"Failed to send assignment notification from automation: {e}", exc_info=True)
                     except Exception as e:
                         pass # Silently fail automation if ids are invalid
                 elif atype == "notify_user":
@@ -337,8 +343,10 @@ class TaskSerializer(serializers.ModelSerializer):
                                 link=f"/tasks/{task.board_id}?taskId={task.id}",
                                 sender=user
                             )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        import logging
+                        logger = logging.getLogger("apps")
+                        logger.error(f"Failed to send generic notification from automation: {e}", exc_info=True)
 
 class TaskDetailSerializer(TaskSerializer):
     """Full task with comments, attachments, and activities."""

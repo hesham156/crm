@@ -41,19 +41,49 @@ class Notification(models.Model):
 
 
 def send_notification(recipient_ids, title, body="", type="system", link="", sender=None):
-    """Helper to bulk-create notifications and push via WebSocket."""
+    """Helper to bulk-create notifications and push via WebSocket and WhatsApp."""
     from apps.accounts.models import User
     import json
     from channels.layers import get_channel_layer
     from asgiref.sync import async_to_sync
+    from .whatsapp import send_whatsapp_template
 
     channel_layer = get_channel_layer()
+    users = User.objects.filter(id__in=recipient_ids)
+    user_map = {user.id: user for user in users}
+
+    # Role-Based Allowed WhatsApp Notifications
+    ROLE_WHATSAPP_NOTIFICATIONS = {
+        "admin": ["task_assigned", "approval_requested", "job_created", "mention"],
+        "manager": ["task_assigned", "approval_requested", "job_created", "mention"],
+        "sales": ["job_updated", "task_assigned", "mention"],
+        "designer": ["task_assigned", "file_uploaded", "mention", "approval_done"],
+        "production": ["task_assigned", "job_updated", "mention"],
+    }
 
     for user_id in recipient_ids:
+        user = user_map.get(user_id)
+        
         notif = Notification.objects.create(
             recipient_id=user_id, sender=sender,
             type=type, title=title, body=body, link=link,
         )
+
+        # WhatsApp Template Integration (uses approved "test2" template)
+        if user and user.phone:
+            allowed_types = ROLE_WHATSAPP_NOTIFICATIONS.get(user.role, [])
+            if type in allowed_types:
+                send_whatsapp_template(
+                    phone=user.phone,
+                    template_name="test2",
+                    named_params={
+                        "name": user.full_name_en,
+                        "order_id": title,
+                        "product": body or type,
+                    },
+                    language_code="en_US",
+                )
+
         # Push via WebSocket
         if channel_layer:
             try:

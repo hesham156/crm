@@ -38,6 +38,7 @@ django-uuid-upload-path==1.0.0
 python-dateutil==2.9.0.post0
 celery==5.4.0
 redis==5.0.4
+requests==2.32.3
 
 # ─── Dev / Testing ────────────────────────────────────────────────────────────
 pytest==8.2.0
