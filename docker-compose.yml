@@ -52,10 +52,6 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    volumes:
-      - ./backend:/app
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
     env_file:
       - .env
     ports:
