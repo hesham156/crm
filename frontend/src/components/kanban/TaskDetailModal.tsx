@@ -136,8 +136,18 @@ export default function TaskDetailModal({
     mutationFn: (minutes: number) => tasksApi.logTime(task!.id, { duration: minutes }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["task", task!.id] });
+      qc.invalidateQueries({ queryKey: ["tasks", boardId] });
       setTimeMinutes("");
       toast.success("Time logged!");
+    },
+  });
+
+  const toggleTimerMutation = useMutation({
+    mutationFn: (action: "start" | "stop") => tasksApi.toggleTimer(task!.id, action),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks", boardId] });
+      qc.invalidateQueries({ queryKey: ["task", task!.id] });
+      toast.success(action === "start" ? "Timer started!" : "Timer stopped and time logged!");
     },
   });
 
@@ -485,8 +495,19 @@ export default function TaskDetailModal({
               </div>
 
               <div>
+                <label className="form-label">Estimated Time (Minutes)</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  defaultValue={taskDetail?.estimated_minutes || ""}
+                  placeholder="e.g. 120"
+                  onBlur={(e) => updateMutation.mutate({ estimated_minutes: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+
+              <div>
                 <label className="form-label">Time Logged</label>
-                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", color: "var(--text-secondary)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", color: "var(--text-secondary)", marginBottom: "var(--space-2)" }}>
                   <Clock size={16} />
                   <span style={{ fontWeight: 700 }}>
                     {taskDetail?.time_logged
@@ -494,6 +515,31 @@ export default function TaskDetailModal({
                       : "No time logged"}
                   </span>
                 </div>
+                
+                {/* Timer Control */}
+                {!isNew && taskDetail && (
+                  <div>
+                    {taskDetail.is_timer_running ? (
+                      <button 
+                        className="btn btn-sm" 
+                        style={{ width: "100%", background: "#ef4444", color: "white", justifyContent: "center", border: "none" }}
+                        onClick={() => toggleTimerMutation.mutate("stop")}
+                        disabled={toggleTimerMutation.isPending}
+                      >
+                        <Clock size={14} className="pulse" /> Stop Timer
+                      </button>
+                    ) : (
+                      <button 
+                        className="btn btn-sm btn-secondary" 
+                        style={{ width: "100%", justifyContent: "center", color: "#22c55e", borderColor: "#22c55e" }}
+                        onClick={() => toggleTimerMutation.mutate("start")}
+                        disabled={toggleTimerMutation.isPending}
+                      >
+                        <Clock size={14} /> Start Timer
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               
               {!isNew && (

@@ -133,6 +133,13 @@ class TaskMoveView(APIView):
         if new_column_id:
             old_column_id = task.column_id
 
+            if str(old_column_id) != str(new_column_id):
+                new_col = Column.objects.filter(id=new_column_id).first()
+                if new_col and new_col.name.lower() == "done":
+                    is_blocked = task.blocked_by.filter(is_archived=False).exclude(column__name__iexact="Done").exists()
+                    if is_blocked:
+                        return Response({"detail": "Cannot move task to Done while waiting on blocking tasks."}, status=status.HTTP_400_BAD_REQUEST)
+
             # Shift positions in old column
             Task.objects.filter(
                 column_id=old_column_id, position__gt=task.position, is_archived=False
@@ -180,6 +187,37 @@ class TaskMoveView(APIView):
                                     old_value=task.column.name,
                                     new_value=str(target_col_id)
                                 )
+                        elif action.get("type") == "auto_assign":
+                            assignee_id = action.get("value")
+                            if assignee_id:
+                                task.assigned_to.add(assignee_id)
+                                try:
+                                    from apps.notifications.models import send_notification
+                                    send_notification(
+                                        recipient_ids=[assignee_id],
+                                        title=f"Automation Alert: Task Assigned",
+                                        body=f"{task.title[:30]} was assigned to you by automation.",
+                                        type="task_assigned",
+                                        link=f"/tasks/{task.board_id}?taskId={task.id}"
+                                    )
+                                except Exception:
+                                    pass
+                        elif action.get("type") == "notify_user":
+                            try:
+                                recipient_id = None
+                                if action.get("value") == "creator" and task.created_by:
+                                    recipient_id = task.created_by.id
+                                if recipient_id:
+                                    from apps.notifications.models import send_notification
+                                    send_notification(
+                                        recipient_ids=[recipient_id],
+                                        title=f"Automation Update",
+                                        body=f"Task {task.title[:30]} was updated.",
+                                        type="general",
+                                        link=f"/tasks/{task.board_id}?taskId={task.id}"
+                                    )
+                            except Exception:
+                                pass
 
         return Response(TaskSerializer(task, context={"request": request}).data)
 
@@ -224,6 +262,40 @@ class TimeLogCreateView(generics.CreateAPIView):
         task_id = self.kwargs.get("task_id")
         serializer.save(task_id=task_id, user=self.request.user)
 
+class TaskTimerToggleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            task = Task.objects.get(pk=pk)
+        except Task.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        action = request.data.get("action")
+        if action == "start":
+            if not task.is_timer_running:
+                task.is_timer_running = True
+                task.timer_started_at = timezone.now()
+                task.save(update_fields=["is_timer_running", "timer_started_at"])
+        elif action == "stop":
+            if task.is_timer_running and task.timer_started_at:
+                delta = timezone.now() - task.timer_started_at
+                minutes = int(delta.total_seconds() / 60)
+                if minutes > 0:
+                    TimeLog.objects.create(
+                        task=task,
+                        user=request.user,
+                        duration=minutes,
+                        note="Tracked via timer"
+                    )
+                    task.time_logged = sum(tl.duration for tl in task.time_logs.all())
+                task.is_timer_running = False
+                task.timer_started_at = None
+                task.save(update_fields=["is_timer_running", "timer_started_at", "time_logged"])
+        else:
+            return Response({"detail": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(TaskSerializer(task, context={"request": request}).data)
 
 class TaskAttachmentView(generics.ListCreateAPIView):
     serializer_class = TaskAttachmentSerializer
@@ -321,6 +393,7 @@ class AdminBoardsOverviewView(APIView):
                         'board_id': str(board.id),
                         'board_name': board.name,
                         'subtasks_count': task.subtasks.filter(is_archived=False).count(),
+                        'estimated_minutes': task.estimated_minutes,
                         'created_at': task.created_at.isoformat(),
                     })
                 board_data['columns'].append(col_data)

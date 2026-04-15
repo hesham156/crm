@@ -23,6 +23,8 @@ interface Task {
   comments_count: number;
   subtasks_count: number;
   time_logged: number;
+  progress?: number;
+  is_timer_running?: boolean;
 }
 
 export default function TaskCard({
@@ -86,6 +88,19 @@ export default function TaskCard({
         </div>
       )}
 
+      {/* Progress Bar for Subtasks */}
+      {task.subtasks_count > 0 && typeof task.progress === "number" && (
+        <div style={{ marginTop: "var(--space-2)", marginBottom: "var(--space-2)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.7rem", color: "var(--text-muted)", marginBottom: "2px" }}>
+            <span>Progress</span>
+            <span>{task.progress}%</span>
+          </div>
+          <div style={{ height: "4px", background: "var(--bg-elevated)", borderRadius: "2px", overflow: "hidden" }}>
+             <div style={{ width: `${task.progress}%`, height: "100%", background: task.progress === 100 ? "var(--color-success)" : "var(--brand-primary)", transition: "width 0.3s ease" }} />
+          </div>
+        </div>
+      )}
+
       {/* Footer */}
       <div className="task-card-footer">
         {/* Due date */}
@@ -118,8 +133,8 @@ export default function TaskCard({
             </span>
           )}
           {task.time_logged > 0 && (
-            <span style={{ display: "flex", alignItems: "center", gap: "2px", fontSize: "0.72rem", color: "var(--text-muted)" }}>
-              <Clock size={12} />
+            <span style={{ display: "flex", alignItems: "center", gap: "2px", fontSize: "0.72rem", color: task.is_timer_running ? "var(--color-success)" : "var(--text-muted)" }}>
+              <Clock size={12} className={task.is_timer_running ? "pulse" : ""} />
               {Math.floor(task.time_logged / 60)}h
             </span>
           )}

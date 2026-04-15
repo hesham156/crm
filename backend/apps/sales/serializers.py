@@ -14,6 +14,7 @@ class JobSerializer(serializers.ModelSerializer):
             "id", "job_number", "title", "customer", "customer_name",
             "created_by", "created_by_name", "status", "priority",
             "deadline", "description", "client_requirements",
+            "drive_folder_id", "drive_folder_url",
             "total_amount", "created_at", "updated_at", "linked_tasks"
         ]
         read_only_fields = ["job_number", "created_by", "created_at", "updated_at"]

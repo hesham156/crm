@@ -393,6 +393,14 @@ export default function AdminBoardsOverviewPage() {
                 onChange={e => setFilter(e.target.value)}
               />
             </div>
+            <Link
+              href="/tasks/admin/workload"
+              className="btn btn-primary btn-sm"
+              style={{ display: "flex", alignItems: "center", gap: "6px" }}
+            >
+              <User size={14} />
+              {isAr ? "مراقبة عبء العمل" : "Workload"}
+            </Link>            
             <button
               id="admin-overview-refresh"
               className="btn btn-secondary btn-sm"

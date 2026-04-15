@@ -31,6 +31,8 @@ class Customer(models.Model):
     address = models.TextField(blank=True)
     notes = models.TextField(blank=True)
     website = models.URLField(blank=True)
+    drive_folder_id = models.CharField(max_length=255, blank=True, null=True)
+    drive_folder_url = models.URLField(max_length=500, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

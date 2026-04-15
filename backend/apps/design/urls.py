@@ -1,8 +1,10 @@
 from django.urls import path
+from django.db import IntegrityError
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
 from django.utils import timezone
 from .models import DesignSubmission
 from rest_framework import serializers
@@ -26,7 +28,10 @@ class DesignSubmissionSerializer(serializers.ModelSerializer):
     def get_file_url_display(self, obj):
         req = self.context.get("request")
         if obj.file and req:
-            return req.build_absolute_uri(obj.file.url)
+            try:
+                return req.build_absolute_uri(obj.file.url)
+            except Exception:
+                pass
         return obj.file_url or None
 
 
@@ -35,12 +40,24 @@ class DesignSubmissionListCreate(generics.ListCreateAPIView):
     permission_classes = [IsDesignerOrAbove]
 
     def get_queryset(self):
-        return DesignSubmission.objects.select_related("job", "designer").all()
+        qs = DesignSubmission.objects.select_related("job", "designer").all()
+        job_id = self.request.query_params.get("job")
+        if job_id:
+            qs = qs.filter(job_id=job_id)
+        return qs
 
     def perform_create(self, serializer):
         job = serializer.validated_data.get("job")
         version = DesignSubmission.objects.filter(job=job).count() + 1
-        serializer.save(designer=self.request.user, version=version)
+        try:
+            serializer.save(designer=self.request.user, version=version)
+        except IntegrityError:
+            # Race condition: recalculate version and retry once
+            version = DesignSubmission.objects.filter(job=job).count() + 1
+            try:
+                serializer.save(designer=self.request.user, version=version)
+            except IntegrityError as e:
+                raise ValidationError({"detail": f"Could not create submission: {e}"})
 
 
 class DesignSubmissionDetail(generics.RetrieveUpdateAPIView):

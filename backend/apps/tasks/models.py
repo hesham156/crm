@@ -87,6 +87,9 @@ class Task(models.Model):
     due_date = models.DateField(null=True, blank=True)
     position = models.PositiveIntegerField(default=0)
     time_logged = models.PositiveIntegerField(default=0, help_text="Minutes")
+    estimated_minutes = models.PositiveIntegerField(default=0, help_text="Estimated Minutes")
+    is_timer_running = models.BooleanField(default=False)
+    timer_started_at = models.DateTimeField(null=True, blank=True)
     tags = models.ManyToManyField(Tag, blank=True, related_name="tasks")
     
     # Monday-style board fields

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, usersApi } from "@/lib/api";
-import { X, Search, Filter, Upload, MoreHorizontal, Check, Zap, Mail, Calendar, Grid, ChevronDown } from "lucide-react";
+import { X, Search, Filter, Upload, MoreHorizontal, Check, Zap, Mail, Calendar, Grid, ChevronDown, User } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface AutomationsModalProps {
@@ -252,6 +252,26 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
         label_text: `When **${fieldConfig.label}** changes to **${triggerValLabel}** move item to board **${bName}** › **${colName}** and assign to **${empName}**`,
       };
 
+    } else if (configuringTemplate.id === "status_assign") {
+      if (!builderParams.actionVal) { toast.error("Please select a target user"); return; }
+      const empName = users?.find((u: any) => u.id === builderParams.actionVal)?.full_name_en || "nobody";
+      newAuto = {
+        trigger_type:  fieldConfig.trigger_type,
+        trigger_value: builderParams.triggerVal,
+        actions: [{ type: "auto_assign", value: builderParams.actionVal }],
+        label_text: `When **${fieldConfig.label}** changes to **${triggerValLabel}** auto-assign to **${empName}**`,
+      };
+
+    } else if (configuringTemplate.id === "status_notify") {
+      if (!builderParams.actionVal) { toast.error("Please select who to notify"); return; }
+      const targetStr = builderParams.actionVal === "creator" ? "the creator" : "assigned users";
+      newAuto = {
+        trigger_type:  fieldConfig.trigger_type,
+        trigger_value: builderParams.triggerVal,
+        actions: [{ type: "notify_user", value: builderParams.actionVal }],
+        label_text: `When **${fieldConfig.label}** changes to **${triggerValLabel}** notify **${targetStr}**`,
+      };
+
     } else {
       newAuto = {
         trigger_type:  "item_created",
@@ -294,11 +314,10 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
   const templates = [
     { id: "status_move",       title: "When a field changes to something, move item to a column in this board", icon: <Grid size={16} /> },
     { id: "status_move_board", title: "When a field changes to something, move item to another board and assign", icon: <Grid size={16} color="#4f46e5" /> },
+    { id: "status_assign",     title: "When a field changes to something, auto-assign a specific person", icon: <User size={16} color="#22c55e" /> },
+    { id: "status_notify",     title: "When a field changes to something notify someone", icon: <Grid size={16} color="#f97316" /> },
     { id: "create_event",      title: "When an item is created or updated, create an event in Calendar", icon: <Calendar size={16} color="#4285F4" /> },
-    { id: "status_notify",     title: "When a field changes to something notify someone", icon: <Grid size={16} /> },
     { id: "create_assign",     title: "When an item is created assign creator as person", icon: <Grid size={16} /> },
-    { id: "date_notify",       title: "When date arrives notify someone", icon: <Grid size={16} /> },
-    { id: "email_create",      title: "When an email is received, create an item", icon: <Mail size={16} color="#EA4335" /> },
   ];
 
   // Shared select style for builder
@@ -390,7 +409,7 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
                     {/* ── Builder sentence ── */}
                     <div style={{ fontSize: "1.2rem", marginBottom: "var(--space-6)", lineHeight: 2, background: "#1a1f36", padding: "var(--space-5)", borderRadius: "var(--radius-md)", display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
 
-                      {(configuringTemplate.id === "status_move" || configuringTemplate.id === "status_move_board") ? (
+                      {["status_move", "status_move_board", "status_assign", "status_notify"].includes(configuringTemplate.id) ? (
                         <>
                           <span style={{ color: "#a0aec0" }}>When</span>
 
@@ -422,7 +441,7 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
                                 {board?.columns?.map((col: any) => <option key={col.id} value={col.id}>{col.name}</option>)}
                               </select>
                             </>
-                          ) : (
+                          ) : configuringTemplate.id === "status_move_board" ? (
                             <>
                               <span style={{ color: "#a0aec0" }}>move item to board</span>
                               <select value={builderParams.targetBoardId} onChange={e => handleTargetBoardChange(e.target.value)} className="form-input form-select" style={selStyle}>
@@ -446,7 +465,24 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
                                 {users?.map((u: any) => <option key={u.id} value={u.id}>{u.full_name_en}</option>)}
                               </select>
                             </>
-                          )}
+                          ) : configuringTemplate.id === "status_assign" ? (
+                            <>
+                              <span style={{ color: "#a0aec0" }}>auto-assign to</span>
+                              <select value={builderParams.actionVal} onChange={e => setBuilderParams({ ...builderParams, actionVal: e.target.value })} className="form-input form-select" style={selStyle}>
+                                <option value="">Select User ▾</option>
+                                {users?.map((u: any) => <option key={u.id} value={u.id}>{u.full_name_en}</option>)}
+                              </select>
+                            </>
+                          ) : configuringTemplate.id === "status_notify" ? (
+                            <>
+                              <span style={{ color: "#a0aec0" }}>notify</span>
+                              <select value={builderParams.actionVal} onChange={e => setBuilderParams({ ...builderParams, actionVal: e.target.value })} className="form-input form-select" style={selStyle}>
+                                <option value="">Select target ▾</option>
+                                <option value="creator">Task Creator</option>
+                                <option value="assignee">Assigned Users</option>
+                              </select>
+                            </>
+                          ) : null}
                         </>
                       ) : (
                         renderFormattedText(configuringTemplate.title)
@@ -454,7 +490,7 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
                     </div>
 
                     {/* Field color legend */}
-                    {(configuringTemplate.id === "status_move" || configuringTemplate.id === "status_move_board") && (
+                    {["status_move", "status_move_board", "status_assign", "status_notify"].includes(configuringTemplate.id) && (
                       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "var(--space-4)" }}>
                         {TRIGGER_FIELDS.map(f => (
                           <span

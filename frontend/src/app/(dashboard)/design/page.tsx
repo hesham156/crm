@@ -4,14 +4,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { salesApi, designApi } from "@/lib/api";
 import { useUIStore } from "@/store/useUIStore";
 import { useState } from "react";
-import { Check, Upload, X, Eye, FileImage, Send, MessageSquare } from "lucide-react";
+import { Check, Upload, X, Eye, FileImage, Send, MessageSquare, Cloud } from "lucide-react";
 import toast from "react-hot-toast";
+import { useGoogleDrivePicker } from "@/hooks/useGoogleDrivePicker";
 
 export default function DesignBoardPage() {
   const { language } = useUIStore();
   const isAr = language === "ar";
   const queryClient = useQueryClient();
   const [expandedJob, setExpandedJob] = useState<any | null>(null);
+  const { openPicker } = useGoogleDrivePicker();
 
   // Fetch jobs in design or approval
   const { data: jobs, isLoading } = useQuery({
@@ -39,12 +41,19 @@ export default function DesignBoardPage() {
   const submissionsForJob = submissions?.filter((s: any) => s.job === expandedJob?.id) || [];
 
   const { mutate: uploadDesign, isPending: isUploading } = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append("job", expandedJob.id);
-      formData.append("file", file);
-      // Wait, filename is not standard, let backend handle it or we append it
-      await designApi.createSubmission(formData);
+    mutationFn: async (payload: File | { file_url: string; filename: string }) => {
+      if (payload instanceof File) {
+        const formData = new FormData();
+        formData.append("job", expandedJob.id);
+        formData.append("file", payload);
+        await designApi.createSubmission(formData);
+      } else {
+        await designApi.createSubmission({
+          job: expandedJob.id,
+          file_url: payload.file_url,
+          filename: payload.filename
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["design-submissions", expandedJob?.id] });
@@ -65,7 +74,7 @@ export default function DesignBoardPage() {
     },
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: any) => {
     if (e.target.files && e.target.files[0]) {
       uploadDesign(e.target.files[0]);
     }
@@ -141,12 +150,28 @@ export default function DesignBoardPage() {
                   </p>
                 </div>
                 <div>
+                <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                  {expandedJob.drive_folder_url && (
+                    <a href={expandedJob.drive_folder_url} target="_blank" className="btn btn-ghost btn-sm" style={{ color: "var(--brand-primary)" }} title={isAr ? "مجلد جوجل درايف للطلب" : "Job Google Drive Folder"}>
+                      <Cloud size={14} /> Drive Folder
+                    </a>
+                  )}
+                  <button 
+                    className="btn btn-secondary btn-sm" 
+                    onClick={() => openPicker({
+                      onFilePicked: (file) => uploadDesign({ file_url: file.url, filename: file.name })
+                    })}
+                    disabled={isUploading}
+                  >
+                    <Cloud size={14} /> {isAr ? "من Drive" : "From Drive"}
+                  </button>
                   <input type="file" id="upload-design" style={{ display: "none" }} onChange={handleFileChange} />
-                  <label htmlFor="upload-design" className="btn btn-primary btn-sm" style={{ cursor: "pointer" }}>
+                  <label htmlFor="upload-design" className="btn btn-primary btn-sm" style={{ cursor: "pointer", margin: 0 }}>
                     <Upload size={14} /> 
-                    {isUploading ? (isAr ? "جاري الرفع..." : "Uploading...") : (isAr ? "رفع تصميم جديد" : "Upload Design")}
+                    {isUploading ? (isAr ? "جاري الرفع..." : "Uploading...") : (isAr ? "رفع ملف" : "Upload File")}
                   </label>
                 </div>
+              </div>
               </div>
 
               {subsLoading ? (

@@ -11,7 +11,7 @@ class CustomerSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "company", "email", "phone",
             "type", "stage", "assigned_to", "assigned_to_name",
-            "address", "notes", "website", "created_at", "updated_at"
+            "address", "notes", "website", "drive_folder_id", "drive_folder_url", "created_at", "updated_at"
         ]
 
 

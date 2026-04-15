@@ -104,6 +104,9 @@ export const tasksApi = {
   logTime: (taskId: string, data: { duration: number; note?: string }) =>
     apiClient.post(`/tasks/tasks/${taskId}/time-log/`, data),
 
+  toggleTimer: (taskId: string, action: "start" | "stop") =>
+    apiClient.post(`/tasks/tasks/${taskId}/timer/`, { action }),
+
   tags: () => apiClient.get("/tasks/tags/"),
   
   createAutomation: (boardId: string, data: any) =>

@@ -120,6 +120,7 @@ class TaskSerializer(serializers.ModelSerializer):
         many=True, write_only=True, queryset=Task.objects.all(), source="blocked_by", required=False
     )
     is_blocked = serializers.SerializerMethodField()
+    progress = serializers.SerializerMethodField()
 
     class Meta:
         model = Task
@@ -130,16 +131,26 @@ class TaskSerializer(serializers.ModelSerializer):
             "assigned_to", "assigned_to_ids",
             "priority", "start_date", "due_date", "position",
             "client_status", "is_checked",
-            "time_logged", "tags", "tag_ids",
+            "time_logged", "estimated_minutes", "is_timer_running", "timer_started_at", "tags", "tag_ids",
             "job", "is_archived",
             "subtasks_count", "comments_count",
-            "blocked_by", "blocked_by_ids", "is_blocked",
+            "blocked_by", "blocked_by_ids", "is_blocked", "progress",
             "created_at", "updated_at",
         ]
-        read_only_fields = ["created_by", "time_logged", "created_at", "updated_at", "blocked_by"]
+        read_only_fields = ["created_by", "time_logged", "created_at", "updated_at", "blocked_by", "is_timer_running", "timer_started_at"]
 
     def get_is_blocked(self, obj):
         return obj.blocked_by.filter(is_archived=False).exclude(column__name__iexact="Done").exists()
+
+    def get_progress(self, obj):
+        subtasks = obj.subtasks.filter(is_archived=False)
+        total = subtasks.count()
+        if total > 0:
+            done = subtasks.filter(column__name__iexact="Done").count()
+            return int((done / total) * 100)
+        elif obj.column and obj.column.name.lower() == "done":
+            return 100
+        return 0
 
     def get_subtasks_count(self, obj):
         return obj.subtasks.filter(is_archived=False).count()

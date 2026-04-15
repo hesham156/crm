@@ -117,23 +117,33 @@ CHANNEL_LAYERS = {
     }
 }
 
-# ─── Storage (MinIO) ──────────────────────────────────────────────────────────
+# ─── Storage ──────────────────────────────────────────────────────────────────
+# Always define local media paths as a safe fallback
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 USE_MINIO = config("AWS_S3_ENDPOINT_URL", default=None) is not None
 
 if USE_MINIO:
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-    AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID")
-    AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY")
-    AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", default="prosticker-files")
-    AWS_S3_ENDPOINT_URL = config("AWS_S3_ENDPOINT_URL")
-    AWS_S3_USE_SSL = config("AWS_S3_USE_SSL", default=False, cast=bool)
-    AWS_S3_CUSTOM_DOMAIN = config("AWS_S3_CUSTOM_DOMAIN", default=None)
-    AWS_DEFAULT_ACL = "public-read"
-    AWS_S3_SIGNATURE_VERSION = "s3v4"
-    AWS_QUERYSTRING_AUTH = False
-else:
-    MEDIA_URL = "/media/"
-    MEDIA_ROOT = BASE_DIR / "media"
+    try:
+        DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+        AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID")
+        AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY")
+        AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", default="prosticker-files")
+        AWS_S3_ENDPOINT_URL = config("AWS_S3_ENDPOINT_URL")
+        AWS_S3_USE_SSL = config("AWS_S3_USE_SSL", default=False, cast=bool)
+        # AWS_S3_CUSTOM_DOMAIN = "files.wafarle.com/prosticker-files"
+        # This makes public file URLs use http://files.wafarle.com/prosticker-files/<path>
+        AWS_S3_CUSTOM_DOMAIN = config("AWS_S3_CUSTOM_DOMAIN", default=None)
+        AWS_S3_URL_PROTOCOL = config("AWS_S3_URL_PROTOCOL", default="http")
+        AWS_DEFAULT_ACL = "public-read"
+        AWS_S3_SIGNATURE_VERSION = "s3v4"
+        AWS_QUERYSTRING_AUTH = False
+        AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+    except Exception as e:
+        import warnings
+        warnings.warn(f"MinIO/S3 storage configuration failed, falling back to local storage: {e}")
+        USE_MINIO = False
 
 # ─── Static Files ─────────────────────────────────────────────────────────────
 STATIC_URL = "/static/"
@@ -187,7 +197,7 @@ SIMPLE_JWT = {
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
-    default="http://localhost:3000,http://127.0.0.1:3000",
+    default="http://localhost:3000,http://127.0.0.1:3000,http://files.wafarle.com,http://prosticker.wafarle.com",
     cast=Csv(),
 )
 CORS_ALLOW_CREDENTIALS = True
@@ -227,6 +237,8 @@ LOGGING = {
     },
 }
 
-
+# ─── Google Drive ─────────────────────────────────────────────────────────────
+GOOGLE_DRIVE_CREDENTIALS_PATH = os.path.join(BASE_DIR, config("GOOGLE_DRIVE_CREDENTIALS_PATH", default="credentials.json"))
+GOOGLE_DRIVE_ROOT_FOLDER_ID = config("GOOGLE_DRIVE_ROOT_FOLDER_ID", default=None)
 
 
