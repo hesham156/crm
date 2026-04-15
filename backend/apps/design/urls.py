@@ -1,3 +1,5 @@
+import os
+import tempfile
 from django.urls import path
 from django.db import IntegrityError
 from rest_framework import generics, status
@@ -9,6 +11,9 @@ from django.utils import timezone
 from .models import DesignSubmission
 from rest_framework import serializers
 from apps.accounts.permissions import IsDesignerOrAbove
+import logging
+
+logger = logging.getLogger("apps")
 
 
 class DesignSubmissionSerializer(serializers.ModelSerializer):
@@ -29,13 +34,59 @@ class DesignSubmissionSerializer(serializers.ModelSerializer):
         validators = []
 
     def get_file_url_display(self, obj):
+        # Prefer Google Drive URL if available
+        if obj.file_url:
+            return obj.file_url
         req = self.context.get("request")
         if obj.file and req:
             try:
                 return req.build_absolute_uri(obj.file.url)
             except Exception:
                 pass
-        return obj.file_url or None
+        return None
+
+
+def _upload_to_drive(file_obj, filename, parent_id=None):
+    """
+    Upload a file-like object to Google Drive.
+    Returns (file_id, web_view_link) or (None, None) on failure.
+    """
+    try:
+        from utils.google_drive import get_drive_service
+        from googleapiclient.http import MediaIoBaseUpload
+        import mimetypes
+
+        service = get_drive_service()
+        if not service:
+            logger.warning("Google Drive service unavailable — skipping Drive upload.")
+            return None, None
+
+        mime_type, _ = mimetypes.guess_type(filename)
+        mime_type = mime_type or "application/octet-stream"
+
+        file_metadata = {"name": filename}
+        if parent_id:
+            file_metadata["parents"] = [parent_id]
+
+        media = MediaIoBaseUpload(file_obj, mimetype=mime_type, resumable=True)
+        created = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields="id, webViewLink"
+        ).execute()
+
+        file_id = created.get("id")
+        # Make readable by anyone with the link
+        service.permissions().create(
+            fileId=file_id,
+            body={"type": "anyone", "role": "reader"},
+            fields="id"
+        ).execute()
+
+        return file_id, created.get("webViewLink")
+    except Exception as e:
+        logger.error(f"Google Drive upload error: {e}", exc_info=True)
+        return None, None
 
 
 class DesignSubmissionListCreate(generics.ListCreateAPIView):
@@ -49,17 +100,54 @@ class DesignSubmissionListCreate(generics.ListCreateAPIView):
             qs = qs.filter(job_id=job_id)
         return qs
 
-
     def perform_create(self, serializer):
         job = serializer.validated_data.get("job")
         version = DesignSubmission.objects.filter(job=job).count() + 1
+
+        # ── Handle Google Drive upload ────────────────────────────────────────
+        uploaded_file = self.request.FILES.get("file")
+        file_url = ""
+        filename = serializer.validated_data.get("filename", "")
+
+        if uploaded_file:
+            filename = filename or uploaded_file.name
+            parent_id = job.drive_folder_id if job else None
+            _, drive_link = _upload_to_drive(uploaded_file, filename, parent_id=parent_id)
+            if drive_link:
+                file_url = drive_link
+                logger.info(f"Design uploaded to Drive: {drive_link}")
+            else:
+                logger.warning("Drive upload failed — will save file locally as fallback.")
+
+        # ── Save submission ───────────────────────────────────────────────────
         try:
-            serializer.save(designer=self.request.user, version=version)
+            if file_url:
+                # Drive upload succeeded — store URL, clear the file field
+                serializer.save(
+                    designer=self.request.user,
+                    version=version,
+                    file_url=file_url,
+                    filename=filename,
+                    file=None,  # Don't store locally
+                )
+            else:
+                # Fallback: store locally (needs local media storage)
+                serializer.save(
+                    designer=self.request.user,
+                    version=version,
+                    filename=filename or (uploaded_file.name if uploaded_file else ""),
+                )
         except IntegrityError:
             # Race condition: recalculate version and retry once
             version = DesignSubmission.objects.filter(job=job).count() + 1
             try:
-                serializer.save(designer=self.request.user, version=version)
+                serializer.save(
+                    designer=self.request.user,
+                    version=version,
+                    file_url=file_url,
+                    filename=filename,
+                    file=None if file_url else serializer.validated_data.get("file"),
+                )
             except IntegrityError as e:
                 raise ValidationError({"detail": f"Could not create submission: {e}"})
 

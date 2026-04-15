@@ -40,6 +40,11 @@ celery==5.4.0
 redis==5.0.4
 requests==2.32.3
 
+# ─── Google Drive ─────────────────────────────────────────────────────────────
+google-auth==2.29.0
+google-auth-httplib2==0.2.0
+google-api-python-client==2.128.0
+
 # ─── Dev / Testing ────────────────────────────────────────────────────────────
 pytest==8.2.0
 pytest-django==4.8.0
