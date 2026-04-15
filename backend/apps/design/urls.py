@@ -24,6 +24,9 @@ class DesignSubmissionSerializer(serializers.ModelSerializer):
             "submitted_at", "reviewed_at", "created_at"
         ]
         read_only_fields = ["designer", "version", "created_at"]
+        # Disable ModelSerializer uniqueness validation since we calculate version
+        # dynamically in perform_create and catch IntegrityErrors there.
+        validators = []
 
     def get_file_url_display(self, obj):
         req = self.context.get("request")
@@ -45,6 +48,7 @@ class DesignSubmissionListCreate(generics.ListCreateAPIView):
         if job_id:
             qs = qs.filter(job_id=job_id)
         return qs
+
 
     def perform_create(self, serializer):
         job = serializer.validated_data.get("job")

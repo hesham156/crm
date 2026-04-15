@@ -20,7 +20,7 @@ class DesignSubmission(models.Model):
     )
     version = models.PositiveIntegerField(default=1)
     file = models.FileField(upload_to="designs/%Y/%m/", null=True, blank=True)
-    file_url = models.URLField(blank=True, help_text="MinIO/Drive URL")
+    file_url = models.URLField(max_length=1000, blank=True, help_text="MinIO/Drive URL")
     filename = models.CharField(max_length=255, blank=True)
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default="draft")
     reviewer = models.ForeignKey(
