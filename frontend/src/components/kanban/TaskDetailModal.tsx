@@ -144,7 +144,7 @@ export default function TaskDetailModal({
 
   const toggleTimerMutation = useMutation({
     mutationFn: (action: "start" | "stop") => tasksApi.toggleTimer(task!.id, action),
-    onSuccess: () => {
+    onSuccess: (_data, action) => {
       qc.invalidateQueries({ queryKey: ["tasks", boardId] });
       qc.invalidateQueries({ queryKey: ["task", task!.id] });
       toast.success(action === "start" ? "Timer started!" : "Timer stopped and time logged!");
