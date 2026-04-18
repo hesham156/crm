@@ -2,6 +2,7 @@ from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -14,9 +15,16 @@ from .serializers import (
 from .permissions import IsAdmin, IsAdminOrManager
 
 
+class LoginThrottle(AnonRateThrottle):
+    """Allow max 10 login attempts per minute per IP."""
+    rate = "10/min"
+    scope = "login"
+
+
 class LoginView(TokenObtainPairView):
     permission_classes = [AllowAny]
-    serializer_class = CustomTokenObtainPairSerializer
+    throttle_classes   = [LoginThrottle]  # 🔒 Brute-force protection
+    serializer_class   = CustomTokenObtainPairSerializer
 
 
 class LogoutView(APIView):
@@ -55,7 +63,12 @@ class UserListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return User.objects.select_related("department").order_by("full_name_en")
+        # ✔️ Only show ACTIVE users (fix for soft-delete not filtering)
+        qs = User.objects.select_related("department").filter(is_active=True)
+        # Allow admins to also see inactive users via ?include_inactive=1
+        if self.request.user.is_admin and self.request.query_params.get("include_inactive"):
+            qs = User.objects.select_related("department").all()
+        return qs.order_by("full_name_en")
 
     def get_serializer_class(self):
         if self.request.method == "POST":

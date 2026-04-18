@@ -103,19 +103,35 @@ DATABASES = {
 
 # ─── Cache / Channels ─────────────────────────────────────────────────────────
 REDIS_URL = config("REDIS_URL", default="redis://localhost:6379/0")
+USE_REDIS = config("USE_REDIS", default=False, cast=bool)
 
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": REDIS_URL,
+if USE_REDIS:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
     }
-}
-
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+            },
+        }
     }
-}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "unique-snowflake",
+        }
+    }
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
 
 # ─── Storage ──────────────────────────────────────────────────────────────────
 # Always define local media paths as a safe fallback
@@ -174,10 +190,20 @@ REST_FRAMEWORK = {
         "rest_framework.filters.OrderingFilter",
     ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 25,
+    "PAGE_SIZE": 50,
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
     ],
+    # 🔒 Rate limiting: 10 login attempts/min, 1000 API calls/day per user
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon":  "100/day",
+        "user":  "10000/day",
+        "login": "10/min",    # ← used by LoginThrottle in accounts/views.py
+    },
 }
 
 SIMPLE_JWT = {
@@ -212,8 +238,10 @@ else:
 
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@prosticker.com")
 # ─── WhatsApp (Kapso CLI) ──────────────────────────────────────────────────────
-KAPSO_API_KEY = config("KAPSO_API_KEY", default="")
+KAPSO_API_KEY  = config("KAPSO_API_KEY",  default="")
 KAPSO_PHONE_ID = config("KAPSO_PHONE_ID", default="")
+# Configurable template name — override in .env to avoid hardcoding
+WHATSAPP_TEMPLATE_NAME = config("WHATSAPP_TEMPLATE_NAME", default="test2")
 # ─── Internationalization ─────────────────────────────────────────────────────
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Riyadh"

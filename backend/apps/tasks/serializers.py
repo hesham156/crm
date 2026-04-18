@@ -168,8 +168,9 @@ class TaskSerializer(serializers.ModelSerializer):
             
         task = super().create(validated_data)
         
-        # Evaluate automations (Wait until transaction completes, but ok in simple synchronous flow)
-        self._run_automations(task, "item_created", "")
+        # Evaluate automations 
+        from .automation_service import run_task_automations
+        run_task_automations(task, "item_created", "", user=self.context["request"].user)
         
         # Notify assignees
         new_assignees = set(task.assigned_to.values_list('id', flat=True))
@@ -255,12 +256,13 @@ class TaskSerializer(serializers.ModelSerializer):
                 old_value="[title updated]", new_value=task.title
             )
 
-        # Evaluate automations
+        # Evaluate automations using unified service
+        from .automation_service import run_task_automations
         if old_client_status != task.client_status:
-            self._run_automations(task, "client_status_change", task.client_status)
+            run_task_automations(task, "client_status_change", task.client_status, user=user)
         
         if old_column_id != task.column_id:
-            self._run_automations(task, "column_change", str(task.column_id))
+            run_task_automations(task, "column_change", str(task.column_id), user=user)
             
             # Sub-item Rollup Automation:
             # If this is a subitem and it moved to Done, check if ALL subitems are Done.
@@ -283,81 +285,7 @@ class TaskSerializer(serializers.ModelSerializer):
 
         return task
 
-    def _run_automations(self, task, trigger_type, new_value):
-        automations = BoardAutomation.objects.filter(
-            board=task.board,
-            trigger_type=trigger_type,
-            trigger_value=new_value,
-            is_active=True
-        )
-        for auto in automations:
-            for action in auto.actions:
-                atype = action.get("type")
-                avalue = action.get("value")
-                
-                if atype == "move_to_column":
-                    task.column_id = avalue
-                    task.save(update_fields=["column", "updated_at"])
-                elif atype == "move_to_board":
-                    try:
-                        target_board_id = avalue.get("board_id")
-                        target_col_id = avalue.get("column_id")
-                        assignee_id = avalue.get("assignee_id")
-                        
-                        updates = ["updated_at"]
-                        if target_board_id:
-                            task.board_id = target_board_id
-                            updates.append("board")
-                        if target_col_id:
-                            task.column_id = target_col_id
-                            updates.append("column")
-                            
-                        # If moving subitem to new board, it should ideally lose its parent lock or keep it depending on rules. 
-                        # We'll just move it as asked.
-                        task.save(update_fields=updates)
-                        
-                        if assignee_id:
-                            task.assigned_to.add(assignee_id)
-                            try:
-                                user = self.context["request"].user
-                                from apps.notifications.models import send_notification
-                                send_notification(
-                                    recipient_ids=[assignee_id],
-                                    title=f"New Task Assigned",
-                                    body=f"You have been assigned to task: {task.title[:30]}",
-                                    type="task_assigned",
-                                    link=f"/tasks/{task.board_id}?taskId={task.id}",
-                                    sender=user
-                                )
-                            except Exception as e:
-                                import logging
-                                logger = logging.getLogger("apps")
-                                logger.error(f"Failed to send assignment notification from automation: {e}", exc_info=True)
-                    except Exception as e:
-                        pass # Silently fail automation if ids are invalid
-                elif atype == "notify_user":
-                    try:
-                        user = self.context["request"].user
-                        recipient_id = None
-                        if avalue == "creator" and task.created_by:
-                            recipient_id = task.created_by.id
-                        elif avalue == "assignee":
-                            pass # We can notify all assignees, but skipped for brevity unless specified
-                            
-                        if recipient_id and recipient_id != user.id:
-                            from apps.notifications.models import send_notification
-                            send_notification(
-                                recipient_ids=[recipient_id],
-                                title=f"Automation Alert",
-                                body=f"Task {task.title[:30]} had an update.",
-                                type="general",
-                                link=f"/tasks/{task.board_id}?taskId={task.id}",
-                                sender=user
-                            )
-                    except Exception as e:
-                        import logging
-                        logger = logging.getLogger("apps")
-                        logger.error(f"Failed to send generic notification from automation: {e}", exc_info=True)
+
 
 class TaskDetailSerializer(TaskSerializer):
     """Full task with comments, attachments, and activities."""

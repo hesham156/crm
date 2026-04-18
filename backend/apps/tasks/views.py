@@ -164,60 +164,9 @@ class TaskMoveView(APIView):
                     new_value=new_col.name if new_col else "Unknown"
                 )
                 
-                # Check Automations
-                automations = BoardAutomation.objects.filter(
-                    board=task.board,
-                    trigger_type="column_change",
-                    trigger_value=str(new_column_id),
-                    is_active=True
-                )
-                for auto in automations:
-                    for action in auto.actions:
-                        if action.get("type") == "move_to_column":
-                            # Note: To avoid infinite loop, we move it but don't recursively check
-                            target_col_id = action.get("value")
-                            if target_col_id:
-                                task.column_id = target_col_id
-                                max_pos = Task.objects.filter(column_id=target_col_id, is_archived=False).count()
-                                task.position = max_pos
-                                task.save(update_fields=["column_id", "position"])
-                                
-                                TaskActivity.objects.create(
-                                    task=task, user=None, field_changed="column (Automation)",
-                                    old_value=task.column.name,
-                                    new_value=str(target_col_id)
-                                )
-                        elif action.get("type") == "auto_assign":
-                            assignee_id = action.get("value")
-                            if assignee_id:
-                                task.assigned_to.add(assignee_id)
-                                try:
-                                    from apps.notifications.models import send_notification
-                                    send_notification(
-                                        recipient_ids=[assignee_id],
-                                        title=f"Automation Alert: Task Assigned",
-                                        body=f"{task.title[:30]} was assigned to you by automation.",
-                                        type="task_assigned",
-                                        link=f"/tasks/{task.board_id}?taskId={task.id}"
-                                    )
-                                except Exception:
-                                    pass
-                        elif action.get("type") == "notify_user":
-                            try:
-                                recipient_id = None
-                                if action.get("value") == "creator" and task.created_by:
-                                    recipient_id = task.created_by.id
-                                if recipient_id:
-                                    from apps.notifications.models import send_notification
-                                    send_notification(
-                                        recipient_ids=[recipient_id],
-                                        title=f"Automation Update",
-                                        body=f"Task {task.title[:30]} was updated.",
-                                        type="general",
-                                        link=f"/tasks/{task.board_id}?taskId={task.id}"
-                                    )
-                            except Exception:
-                                pass
+                # Check Automations using the unified service
+                from .automation_service import run_task_automations
+                run_task_automations(task, "column_change", str(new_column_id), user=request.user)
 
         return Response(TaskSerializer(task, context={"request": request}).data)
 

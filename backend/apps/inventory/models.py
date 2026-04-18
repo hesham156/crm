@@ -1,5 +1,5 @@
 import uuid
-from django.db import models
+from django.db import models, transaction
 from django.conf import settings
 
 
@@ -40,7 +40,31 @@ class InventoryItem(models.Model):
 
     @property
     def is_low_stock(self):
-        return self.quantity <= self.min_quantity
+        return self.quantity > 0 and self.quantity <= self.min_quantity
+
+    @property
+    def is_out_of_stock(self):
+        return self.quantity <= 0
+
+    def _auto_sku(self):
+        """Generate a SKU like INV-0001 if none provided."""
+        prefix = "INV"
+        last = InventoryItem.objects.filter(
+            sku__startswith=f"{prefix}-"
+        ).order_by("-sku").first()
+        if last and last.sku:
+            try:
+                num = int(last.sku.split("-")[-1])
+            except (ValueError, IndexError):
+                num = 0
+        else:
+            num = 0
+        return f"{prefix}-{str(num + 1).zfill(4)}"
+
+    def save(self, *args, **kwargs):
+        if not self.sku:
+            self.sku = self._auto_sku()
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ["name"]
@@ -67,16 +91,37 @@ class InventoryTransaction(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        # Update item quantity
-        item = self.item
-        if self.type == "in":
-            item.quantity += self.quantity
-        elif self.type == "out":
-            item.quantity -= self.quantity
-        else:
-            item.quantity = self.quantity
-        item.save(update_fields=["quantity"])
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            # Update item quantity atomically
+            item = InventoryItem.objects.select_for_update().get(pk=self.item_id)
+            if self.type == "in":
+                item.quantity += self.quantity
+            elif self.type == "out":
+                item.quantity = max(0, item.quantity - self.quantity)
+            else:  # adjustment
+                item.quantity = self.quantity
+            item.save(update_fields=["quantity", "updated_at"])
+
+            # 🔔 Low stock alert
+            if item.is_low_stock or item.is_out_of_stock:
+                try:
+                    from apps.notifications.models import send_notification
+                    from apps.accounts.models import User
+                    admins = list(
+                        User.objects.filter(role__in=["admin", "manager"], is_active=True)
+                        .values_list("id", flat=True)
+                    )
+                    if admins:
+                        label = "نفد" if item.is_out_of_stock else "منخفض"
+                        send_notification(
+                            recipient_ids=[str(uid) for uid in admins],
+                            title=f"تنبيه مخزون {label}: {item.name}",
+                            body=f"الكمية الحالية {item.quantity} {item.unit} (الحد الأدنى: {item.min_quantity})",
+                            type="stock_alert",
+                        )
+                except Exception:
+                    pass  # Don't break the transaction for notification failure
 
     class Meta:
         ordering = ["-created_at"]

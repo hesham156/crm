@@ -555,7 +555,6 @@ export default function TaskDetailModal({
                         ))}
                     </div>
 
-                    {/* We can quickly select another task ID to block. For demo, we just show a raw input or placeholder */}
                     <div style={{ display: "flex", gap: "8px" }}>
                        <input type="text" id="add-blocker-id" placeholder="Paste Task ID" className="form-input" style={{ fontSize: "0.8rem", padding: "4px 8px" }} />
                        <button 
@@ -572,6 +571,27 @@ export default function TaskDetailModal({
                     </div>
                 </div>
               )}
+              
+              {!isNew && user?.role === "admin" && (
+                <div style={{ marginTop: "auto", paddingTop: "var(--space-4)" }}>
+                  <button
+                    className="btn btn-sm"
+                    style={{ width: "100%", background: "#ef444420", color: "#ef4444", border: "1px solid #ef444440", justifyContent: "center" }}
+                    onClick={() => {
+                      if (window.confirm("Are you sure you want to completely delete this task? This cannot be undone.")) {
+                         tasksApi.deleteTask(task.id).then(() => {
+                            qc.invalidateQueries({ queryKey: ["tasks", boardId] });
+                            toast.success("Task deleted permanently");
+                            onClose();
+                         }).catch(() => toast.error("Failed to delete task"));
+                      }
+                    }}
+                  >
+                    Delete Task
+                  </button>
+                </div>
+              )}
+
             </div>
           </div>
         )}
@@ -579,3 +599,4 @@ export default function TaskDetailModal({
     </div>
   );
 }
+

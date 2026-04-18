@@ -25,6 +25,7 @@ const NAV_SECTIONS: { title: string; titleAr: string; items: NavItem[] }[] = [
     titleAr: "عام",
     items: [
       { label: "Dashboard", labelAr: "لوحة التحكم", href: "/", icon: <LayoutDashboard size={18} /> },
+      { label: "My Workspace", labelAr: "تاسكاتي", href: "/my-workspace", icon: <Columns size={18} color="#8b5cf6" /> },
       { label: "Tasks & Boards", labelAr: "المهام واللوحات", href: "/tasks", icon: <Columns size={18} /> },
     ],
   },

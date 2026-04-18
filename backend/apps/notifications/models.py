@@ -5,17 +5,24 @@ from django.conf import settings
 
 class Notification(models.Model):
     TYPE_CHOICES = [
-        ("task_assigned", "Task Assigned"),
-        ("task_updated", "Task Updated"),
-        ("task_comment", "New Comment"),
-        ("task_due", "Task Due"),
-        ("file_uploaded", "File Uploaded"),
-        ("approval_requested", "Approval Requested"),
-        ("approval_done", "Approval Done"),
-        ("job_created", "Job Created"),
-        ("job_updated", "Job Updated"),
-        ("mention", "Mention"),
-        ("system", "System"),
+        ("task_assigned",       "Task Assigned"),
+        ("task_updated",        "Task Updated"),
+        ("task_comment",        "New Comment"),
+        ("task_due",            "Task Due"),
+        ("file_uploaded",       "File Uploaded"),
+        ("approval_requested",  "Approval Requested"),
+        ("approval_done",       "Approval Done"),
+        ("job_created",         "Job Created"),
+        ("job_updated",         "Job Updated"),
+        ("mention",             "Mention"),
+        ("system",              "System"),
+        # New types
+        ("general",             "General"),          # used by automation notify_user
+        ("quality_review",      "Quality Review"),   # used by review_entry automation
+        ("design_approved",     "Design Approved"),  # used by design approval flow
+        ("design_rejected",     "Design Rejected"),  # used by design rejection flow
+        ("stock_alert",         "Low Stock Alert"),  # used by inventory alerts
+        ("invoice_paid",        "Invoice Paid"),     # used by payment tracking
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -69,17 +76,19 @@ def send_notification(recipient_ids, title, body="", type="system", link="", sen
             type=type, title=title, body=body, link=link,
         )
 
-        # WhatsApp Template Integration (uses approved "test2" template)
+        # WhatsApp Template Integration (template configurable via WHATSAPP_TEMPLATE_NAME in .env)
         if user and user.phone:
             allowed_types = ROLE_WHATSAPP_NOTIFICATIONS.get(user.role, [])
             if type in allowed_types:
+                from django.conf import settings as django_settings
+                wa_template = getattr(django_settings, "WHATSAPP_TEMPLATE_NAME", "test2")
                 send_whatsapp_template(
                     phone=user.phone,
-                    template_name="test2",
+                    template_name=wa_template,
                     named_params={
-                        "name": user.full_name_en,
+                        "name":     user.full_name_en,
                         "order_id": title,
-                        "product": body or type,
+                        "product":  body or type,
                     },
                     language_code="en_US",
                 )

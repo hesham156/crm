@@ -177,14 +177,36 @@ class ApproveRejectDesign(APIView):
 
     def post(self, request, pk, action):
         try:
-            sub = DesignSubmission.objects.get(pk=pk)
+            sub = DesignSubmission.objects.select_related("designer", "job").get(pk=pk)
             if action not in ("approve", "reject"):
                 return Response({"detail": "Invalid action."}, status=400)
-            sub.status = "approved" if action == "approve" else "rejected"
+
+            is_approved = action == "approve"
+            sub.status = "approved" if is_approved else "rejected"
             sub.reviewer = request.user
             sub.reviewer_notes = request.data.get("notes", "")
             sub.reviewed_at = timezone.now()
             sub.save()
+
+            # 🔔 Notify the designer
+            if sub.designer_id and sub.designer_id != request.user.id:
+                try:
+                    from apps.notifications.models import send_notification
+                    notif_type = "design_approved" if is_approved else "design_rejected"
+                    status_ar  = "تمت الموافقة" if is_approved else "مرفوض"
+                    job_ref    = sub.job.job_number if sub.job else "غير محدد"
+                    notes_txt  = f" | ملاحظة: {sub.reviewer_notes}" if sub.reviewer_notes else ""
+                    send_notification(
+                        recipient_ids=[str(sub.designer_id)],
+                        title=f"تصميمك {status_ar} — طلب {job_ref}",
+                        body=f"تصميم الإصدار {sub.version} لطلب {job_ref} {status_ar}.{notes_txt}",
+                        type=notif_type,
+                        link=f"/design?job={sub.job_id}",
+                        sender=request.user,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to send design review notification: {e}")
+
             return Response(DesignSubmissionSerializer(sub, context={"request": request}).data)
         except DesignSubmission.DoesNotExist:
             return Response({"detail": "Not found."}, status=404)

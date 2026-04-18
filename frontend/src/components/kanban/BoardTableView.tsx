@@ -104,12 +104,25 @@ export default function BoardTableView({ boardId, columns, tasks, onTaskClick }:
     }
   };
 
-  // Custom colors for Dropdowns
+  // Custom colors for Dropdowns — all quality/production statuses
   const clientStatusColors: Record<string, string> = {
-    "Pending": "var(--text-muted)",
-    "Review": "var(--color-warning)",
-    "Approved": "var(--color-success)",
-    "Rejected": "var(--color-error, #ef4444)"
+    // General
+    "Pending":              "#64748b",
+    "Working on it":        "#4f46e5",
+    "Done":                 "#16a34a",
+    "Review":               "#d97706",
+    "Approved":             "#16a34a",
+    "Rejected":             "#dc2626",
+    // Quality dept
+    "\u0627\u0646\u062a\u0638\u0627\u0631 \u0627\u0644\u0645\u0631\u0627\u062c\u0639\u0629":   "#b45309",   // انتظار المراجعة → amber
+    "\u062a\u0645\u062a \u0627\u0644\u0645\u0631\u0627\u062c\u0639\u0629":    "#0891b2",   // تمت المراجعة  → cyan
+    "Missing & Redo":       "#dc2626",
+    "OS Received":          "#7c3aed",
+    "Done for Q&S":         "#0d9488",
+    // Production
+    "\u062c\u0627\u0647\u0632 \u0644\u0644\u0625\u0633\u062a\u0644\u0627\u0645": "#2563eb",  // جاهز للإستلام → blue
+    // Fallback
+    "\u0645\u0644\u063a\u0649":               "#6b7280",  // ملغى
   };
 
   const priorityColors: Record<string, { bg: string, text: string }> = {
@@ -226,15 +239,30 @@ export default function BoardTableView({ boardId, columns, tasks, onTaskClick }:
                 background: clientStatusColors[task.client_status || "Pending"] || "var(--bg-elevated)",
                 color: "#fff",
                 border: "none", outline: "none", cursor: "pointer",
-                textAlign: "center", fontSize: "0.8rem", fontWeight: 600,
+                textAlign: "center", fontSize: "0.75rem", fontWeight: 600,
                 appearance: "none",
                 opacity: task.client_status === "Pending" ? 0.7 : 1
               }}
             >
-              <option value="Pending">Pending</option>
-              <option value="Review">Review</option>
-              <option value="Approved">Approved</option>
-              <option value="Rejected">Rejected</option>
+              <optgroup label="عام">
+                <option value="Pending">قيد الانتظار</option>
+                <option value="Working on it">جاري العمل</option>
+                <option value="Done">تم</option>
+                <option value="Review">مراجعة</option>
+                <option value="Approved">معتمد</option>
+                <option value="Rejected">مرفوض</option>
+              </optgroup>
+              <optgroup label="الجودة">
+                <option value="\u0627\u0646\u062a\u0638\u0627\u0631 \u0627\u0644\u0645\u0631\u0627\u062c\u0639\u0629">انتظار المراجعة</option>
+                <option value="\u062a\u0645\u062a \u0627\u0644\u0645\u0631\u0627\u062c\u0639\u0629">تمت المراجعة</option>
+                <option value="Missing &amp; Redo">Missing &amp; Redo</option>
+                <option value="OS Received">OS Received</option>
+                <option value="Done for Q&amp;S">Done for Q&amp;S</option>
+                <option value="\u062c\u0627\u0647\u0632 \u0644\u0644\u0625\u0633\u062a\u0644\u0627\u0645">جاهز للإستلام</option>
+              </optgroup>
+              <optgroup label="أخرى">
+                <option value="\u0645\u0644\u063a\u0649">ملغى</option>
+              </optgroup>
             </select>
           </div>
 

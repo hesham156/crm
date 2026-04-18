@@ -6,7 +6,7 @@ import { notificationsApi } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useUIStore } from "@/store/useUIStore";
 import { formatDistanceToNow, isToday, isYesterday } from "date-fns";
-import { X, Settings, MoreHorizontal, Search, Bell, CheckCircle } from "lucide-react";
+import { X, Settings, MoreHorizontal, Search, Bell, CheckCircle, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -176,8 +176,11 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
                 {group}
               </div>
               {notifs.map((n: any) => {
-                const isUUID = n.link && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(n.link);
-                const badgeText = isUUID ? (n.type === "mention" ? "Task" : "Item") : n.link || "Notification";
+                let badgeText = "Notification";
+                if (n.type === "mention") badgeText = "Mention";
+                else if (n.type === "task_assigned") badgeText = "Task Assignment";
+                else if (n.link && n.link.includes("/tasks/")) badgeText = "Task Update";
+                else if (n.link) badgeText = "Open Link";
                 
                 return (
                   <div
@@ -195,35 +198,40 @@ export function NotificationsPanel({ onClose }: NotificationsPanelProps) {
                     }}
                     style={{
                       padding: "var(--space-3) var(--space-4)",
-                      background: n.is_read ? "transparent" : "rgba(249,115,22,0.05)",
+                      background: n.is_read ? "transparent" : "var(--bg-inset)",
                       borderBottom: "1px solid var(--border-subtle)",
                       display: "flex",
                       gap: "var(--space-3)",
                       cursor: "pointer",
                       position: "relative",
+                      transition: "background 0.2s ease"
                     }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
+                    onMouseLeave={(e) => e.currentTarget.style.background = n.is_read ? "transparent" : "var(--bg-inset)"}
                   >
-                    <div className="avatar" style={{ width: "32px", height: "32px", fontSize: "0.9rem", flexShrink: 0, background: "var(--brand-primary)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%" }}>
-                      {n.sender_name ? n.sender_name.charAt(0).toUpperCase() : "-"}
+                    <div className="avatar" style={{ width: "36px", height: "36px", fontSize: "1rem", flexShrink: 0, background: "var(--brand-primary)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", fontWeight: 600 }}>
+                      {n.sender_name ? n.sender_name.charAt(0).toUpperCase() : "S"}
                     </div>
                     <div style={{ flex: 1, minWidth: 0, paddingRight: "24px" }}>
-                      <p style={{ margin: 0, fontSize: "0.85rem", lineHeight: "1.4", color: "var(--text-primary)" }}>
-                        <span style={{ fontWeight: 600 }}>{n.sender_name || "System"}</span> {n.title}
+                      <p style={{ margin: 0, fontSize: "0.9rem", lineHeight: "1.4", color: "var(--text-primary)" }}>
+                        <span style={{ fontWeight: 700 }}>{n.sender_name || "System Admin"}</span>
+                        <span style={{ fontWeight: 500, color: "var(--text-secondary)", marginLeft: "6px" }}>{n.title}</span>
                       </p>
                       {n.body && (
-                        <p style={{ margin: "4px 0 0", fontSize: "0.8rem", color: "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "var(--text-muted)", WebkitLineClamp: 2, display: "-webkit-box", WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                           {n.body}
                         </p>
                       )}
-                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginTop: "6px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginTop: "8px" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", display: "flex", alignItems: "center" }}>
+                          <Clock size={12} style={{ marginRight: "4px" }} />
+                          {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                        </span>
                         {n.link && (
-                          <span style={{ fontSize: "0.75rem", color: "var(--brand-primary)", background: "rgba(249,115,22,0.1)", padding: "2px 6px", borderRadius: "4px", display: "inline-flex", alignItems: "center" }}>
+                          <span style={{ fontSize: "0.7rem", fontWeight: 600, color: "var(--brand-primary)", background: "rgba(249,115,22,0.1)", padding: "2px 8px", borderRadius: "12px", display: "inline-flex", alignItems: "center" }}>
                             {badgeText}
                           </span>
                         )}
-                        <span style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
-                          {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
-                        </span>
                       </div>
                   </div>
                   {!n.is_read && (
