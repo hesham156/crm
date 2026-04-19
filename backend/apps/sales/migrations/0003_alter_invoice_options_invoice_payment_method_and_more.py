@@ -31,6 +31,14 @@ class Migration(migrations.Migration):
             name='quotation',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='line_items', to='sales.quotation'),
         ),
+        migrations.RunSQL(
+            'ALTER TABLE "sales_quotationitem" ALTER COLUMN "id" DROP DEFAULT;',
+            reverse_sql=migrations.RunSQL.noop
+        ),
+        migrations.RunSQL(
+            'ALTER TABLE "sales_quotationitem" ALTER COLUMN "id" SET DATA TYPE uuid USING gen_random_uuid();',
+            reverse_sql=migrations.RunSQL.noop
+        ),
         migrations.AlterField(
             model_name='quotationitem',
             name='id',
