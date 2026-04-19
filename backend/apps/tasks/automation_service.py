@@ -217,7 +217,9 @@ def run_task_automations(task, trigger_type, new_value, user=None):
                                 parent=task,
                                 title=title.strip(),
                                 created_by=user,
-                                position=idx
+                                position=idx,
+                                estimated_minutes=0,
+                                time_logged=0
                             )
                     TaskActivity.objects.create(
                         task=task, user=user, field_changed="Auto-Checklist Generated",

@@ -125,7 +125,7 @@ export default function SendTaskModal({
       description: data.description,
       priority: data.priority,
       due_date: data.due_date || null,
-      assigned_to: data.assigned_to ? [data.assigned_to] : [],
+      assigned_to_ids: data.assigned_to ? [data.assigned_to] : [],
     });
   };
 

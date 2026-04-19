@@ -161,6 +161,10 @@ class TaskSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data["created_by"] = self.context["request"].user
         
+        # Ensure numeric fields default to 0 to satisfy strict PostgreSQL constraints
+        validated_data["estimated_minutes"] = validated_data.get("estimated_minutes") or 0
+        validated_data["time_logged"] = validated_data.get("time_logged") or 0
+        
         column = validated_data.get("column")
         if column:
             max_pos = Task.objects.filter(column=column, is_archived=False).count()
@@ -169,8 +173,13 @@ class TaskSerializer(serializers.ModelSerializer):
         task = super().create(validated_data)
         
         # Evaluate automations 
-        from .automation_service import run_task_automations
-        run_task_automations(task, "item_created", "", user=self.context["request"].user)
+        try:
+            from .automation_service import run_task_automations
+            run_task_automations(task, "item_created", "", user=self.context["request"].user)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("apps")
+            logger.error(f"Failed to run automations during item creation: {e}", exc_info=True)
         
         # Notify assignees
         new_assignees = set(task.assigned_to.values_list('id', flat=True))
@@ -257,12 +266,17 @@ class TaskSerializer(serializers.ModelSerializer):
             )
 
         # Evaluate automations using unified service
-        from .automation_service import run_task_automations
-        if old_client_status != task.client_status:
-            run_task_automations(task, "client_status_change", task.client_status, user=user)
-        
-        if old_column_id != task.column_id:
-            run_task_automations(task, "column_change", str(task.column_id), user=user)
+        try:
+            from .automation_service import run_task_automations
+            if old_client_status != task.client_status:
+                run_task_automations(task, "client_status_change", task.client_status, user=user)
+            
+            if old_column_id != task.column_id:
+                run_task_automations(task, "column_change", str(task.column_id), user=user)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("apps")
+            logger.error(f"Failed to run automations during item update: {e}", exc_info=True)
             
             # Sub-item Rollup Automation:
             # If this is a subitem and it moved to Done, check if ALL subitems are Done.
