@@ -171,6 +171,7 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
     conditionColumnId:   "",  // NEW: for conditional_move_to_board (if_in_column_id)
     subitemsStatus:      "",  // NEW: for set_all_subitems_status action
     notifyUserId:        "",  // NEW: specific user to notify
+    checklistItems:      "",  // NEW: for create_subtasks
   });
   const [targetBoardColumns, setTargetBoardColumns] = useState<any[]>([]);
   const [loadingColumns, setLoadingColumns]         = useState(false);
@@ -210,7 +211,7 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
   // ── Reset on cancel ───────────────────────────────────────────────────────
   const handleCancelTemplate = () => {
     setConfiguringTemplate(null);
-    setBuilderParams({ triggerField: "client_status", triggerVal: "", actionVal: "", targetBoardId: "", targetColumnId: "", targetAssigneeId: "", conditionColumnId: "", subitemsStatus: "", notifyUserId: "" });
+    setBuilderParams({ triggerField: "client_status", triggerVal: "", actionVal: "", targetBoardId: "", targetColumnId: "", targetAssigneeId: "", conditionColumnId: "", subitemsStatus: "", notifyUserId: "", checklistItems: "" });
     setTargetBoardColumns([]);
   };
 
@@ -783,7 +784,7 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
                             onClick={e => {
                               e.stopPropagation();
                               setConfiguringTemplate(tpl);
-                              setBuilderParams({ triggerField: "client_status", triggerVal: "", actionVal: "", targetBoardId: "", targetColumnId: "", targetAssigneeId: "", conditionColumnId: "", subitemsStatus: "", notifyUserId: "" });
+                              setBuilderParams({ triggerField: "client_status", triggerVal: "", actionVal: "", targetBoardId: "", targetColumnId: "", targetAssigneeId: "", conditionColumnId: "", subitemsStatus: "", notifyUserId: "", checklistItems: "" });
                             }}
                             style={{ background: "transparent", border: "1px solid #4a5568", color: "#fff", padding: "var(--space-2)", borderRadius: "var(--radius-md)", marginTop: "var(--space-4)", fontWeight: 600, cursor: "pointer", transition: "all 0.2s" }}
                             onMouseOver={e => e.currentTarget.style.background = "#2d3748"}

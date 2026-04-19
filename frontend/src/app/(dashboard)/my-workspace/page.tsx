@@ -17,7 +17,7 @@ export default function MyWorkspacePage() {
     queryKey: ["tasks", "my-workspace", user?.id],
     queryFn: async () => {
       // Fetching across all boards by assigned user. If the backend supports ?assigned_to=
-      const { data } = await tasksApi.list({ assigned_to: user?.id, is_archived: false });
+      const { data } = await tasksApi.tasks({ assigned_to: user?.id, is_archived: false });
       return data.results || data;
     },
     enabled: !!user?.id,

@@ -50,6 +50,7 @@ export const useGoogleDrivePicker = () => {
     }
 
     const gapi = (window as any).gapi;
+    const google = (window as any).google;
 
     // Authenticate first
     gapi.auth.authorize(
