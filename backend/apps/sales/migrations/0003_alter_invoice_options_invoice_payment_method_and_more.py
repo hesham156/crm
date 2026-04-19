@@ -32,7 +32,7 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='line_items', to='sales.quotation'),
         ),
         migrations.RunSQL(
-            'ALTER TABLE "sales_quotationitem" ALTER COLUMN "id" DROP DEFAULT;',
+            'ALTER TABLE "sales_quotationitem" ALTER COLUMN "id" DROP IDENTITY IF EXISTS;',
             reverse_sql=migrations.RunSQL.noop
         ),
         migrations.RunSQL(
