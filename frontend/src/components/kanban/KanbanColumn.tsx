@@ -30,7 +30,6 @@ export default function KanbanColumn({
   onTaskClick: (task: any) => void;
   onAddTask: () => void;
 }) {
-}) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const dotColor = COLOR_MAP[column.color] || "var(--col-gray)";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
