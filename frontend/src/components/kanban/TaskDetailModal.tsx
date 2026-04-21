@@ -55,6 +55,7 @@ export default function TaskDetailModal({
       const { data } = await tasksApi.columns(boardId);
       return data.results || data;
     },
+    enabled: !!boardId,
   });
 
   const { data: board } = useQuery({
@@ -63,6 +64,7 @@ export default function TaskDetailModal({
       const { data } = await tasksApi.board(boardId);
       return data;
     },
+    enabled: !!boardId,
   });
 
   // Fetch all users for assignment

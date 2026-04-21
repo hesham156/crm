@@ -216,7 +216,7 @@ export default function KanbanBoard({ boardId, viewMode = "kanban" }: KanbanBoar
               onClick={() => {
                 const name = prompt("Enter column name:");
                 if (name && name.trim()) {
-                  tasksApi.createColumn(boardId, { name: name.trim(), color: "var(--brand-primary)" })
+                  tasksApi.createColumn(boardId, { name: name.trim(), color: "gray" })
                     .then(() => {
                       qc.invalidateQueries({ queryKey: ["board", boardId] });
                       toast.success("Column added");
