@@ -70,6 +70,12 @@ def run_task_automations(task, trigger_type, new_value, user=None):
                 elif atype == "auto_assign":
                     task.assigned_to.add(avalue)
                 
+                elif atype == "unassign_person":
+                    if avalue:
+                        task.assigned_to.remove(avalue)
+                    else:
+                        task.assigned_to.clear()
+                
                 elif atype == "notify_user":
                     try:
                         recipient_ids = []

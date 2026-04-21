@@ -251,6 +251,16 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
         label_text:    `When **${fieldConfig.label}** changes to **${triggerValLabel}** move item to **${colName}**`,
       };
 
+    } else if (configuringTemplate.id === "status_move_unassign") {
+      if (!builderParams.actionVal) { toast.error("Please select a target column"); return; }
+      const colName = board?.columns?.find((c: any) => c.id === builderParams.actionVal)?.name || "another column";
+      newAuto = {
+        trigger_type:  fieldConfig.trigger_type,
+        trigger_value: builderParams.triggerVal,
+        actions:       [{ type: "move_to_column", value: builderParams.actionVal }, { type: "unassign_person", value: "" }],
+        label_text:    `When **${fieldConfig.label}** changes to **${triggerValLabel}** move item to **${colName}** and unassign Person`,
+      };
+
     } else if (configuringTemplate.id === "status_move_board") {
       if (!builderParams.triggerVal || !builderParams.targetBoardId || !builderParams.targetColumnId) {
         toast.error("Please fill all required fields");
@@ -425,6 +435,7 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
     { id: "subitems_rollup",  title: "🟢 الاكتمال: عند وصول كل الأصناف لحالة 'تمت المراجعة' — انقل الطلب الأب للإنتاج تلقائياً", icon: <Check size={16} color="#16a34a" /> },
     { id: "missing_redo",     title: "🔴 Missing & Redo: إذا الطلب في Done for Q&S — انقله لبورد الإنتاج وغيّر حالته. إذا كان في الإنتاج — غيّر الحالة فقط", icon: <Grid size={16} color="#dc2626" /> },
     { id: "sync_boards",      title: "🔄 التزامن: عند تحديث حالة طلب في هذا البورد — حدّثه تلقائياً في البورد الثاني (الإنتاج ↔ الجودة)", icon: <Zap size={16} color="#f59e0b" /> },
+    { id: "auto_ship_status", title: "🚚 الشحن: عند تغيير الحالة لـ 'جاهز للإستلام' — غيّرها تلقائياً لـ 'تم الشحن والتسليم'", icon: <Truck size={16} color="#3b82f6" /> },
     
     { id: "start_timer",      title: "⏱️ عندما تتغير حالة الطلب — ابدأ حساب الوقت المخلص للمهمة (Start Timer)", icon: <Calendar size={16} color="#3b82f6" /> },
     { id: "stop_timer",       title: "🛑 عندما تتغير حالة الطلب — أوقف حساب الوقت وسجّله (Stop Timer)", icon: <Calendar size={16} color="#ef4444" /> },
@@ -434,6 +445,7 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
 
     { id: "create_event",     title: "When an item is created or updated, create an event in Calendar", icon: <Calendar size={16} color="#4285F4" /> },
     { id: "create_assign",    title: "When an item is created assign creator as person", icon: <Grid size={16} /> },
+    { id: "status_move_unassign", title: "When a field changes to something move item to a column and unassign Person", icon: <Grid size={16} color="#eab308" /> },
   ];
 
   // Shared select style for builder
@@ -525,7 +537,7 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
                     {/* ── Builder sentence ── */}
                     <div style={{ fontSize: "1.2rem", marginBottom: "var(--space-6)", lineHeight: 2, background: "#1a1f36", padding: "var(--space-5)", borderRadius: "var(--radius-md)", display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
 
-                      {["status_move", "status_move_board", "status_assign", "status_notify"].includes(configuringTemplate.id) ? (
+                      {["status_move", "status_move_board", "status_assign", "status_notify", "status_move_unassign"].includes(configuringTemplate.id) ? (
                         <>
                           <span style={{ color: "#a0aec0" }}>When</span>
 
@@ -556,6 +568,15 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
                                 <option value="">Select Column ▾</option>
                                 {board?.columns?.map((col: any) => <option key={col.id} value={col.id}>{col.name}</option>)}
                               </select>
+                            </>
+                          ) : configuringTemplate.id === "status_move_unassign" ? (
+                            <>
+                              <span style={{ color: "#a0aec0" }}>move item to</span>
+                              <select value={builderParams.actionVal} onChange={e => setBuilderParams({ ...builderParams, actionVal: e.target.value })} className="form-input form-select" style={selStyle}>
+                                <option value="">Select Column ▾</option>
+                                {board?.columns?.map((col: any) => <option key={col.id} value={col.id}>{col.name}</option>)}
+                              </select>
+                              <span style={{ color: "#a0aec0" }}>and unassign Person</span>
                             </>
                           ) : configuringTemplate.id === "status_move_board" ? (
                             <>
@@ -728,7 +749,7 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
                     </div>
 
                     {/* Field color legend */}
-                    {["status_move", "status_move_board", "status_assign", "status_notify"].includes(configuringTemplate.id) && (
+                    {["status_move", "status_move_board", "status_assign", "status_notify", "status_move_unassign"].includes(configuringTemplate.id) && (
                       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "var(--space-4)" }}>
                         {TRIGGER_FIELDS.map(f => (
                           <span
