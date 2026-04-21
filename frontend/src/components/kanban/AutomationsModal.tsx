@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, usersApi } from "@/lib/api";
-import { X, Search, Filter, Upload, MoreHorizontal, Check, Zap, Mail, Calendar, Grid, ChevronDown, User } from "lucide-react";
+import { X, Search, Filter, Upload, MoreHorizontal, Check, Zap, Mail, Calendar, Grid, ChevronDown, User, Truck } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface AutomationsModalProps {
