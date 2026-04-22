@@ -12,7 +12,6 @@ import { tasksApi } from "@/lib/api";
 import KanbanColumn from "./KanbanColumn";
 import TaskCard from "./TaskCard";
 import TaskDetailModal from "./TaskDetailModal";
-import BoardTableView from "./BoardTableView";
 import { Plus, RefreshCw } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -45,10 +44,9 @@ interface Column {
 
 interface KanbanBoardProps {
   boardId: string;
-  viewMode?: "kanban" | "table";
 }
 
-export default function KanbanBoard({ boardId, viewMode = "kanban" }: KanbanBoardProps) {
+export default function KanbanBoard({ boardId }: KanbanBoardProps) {
   const qc = useQueryClient();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -153,30 +151,6 @@ export default function KanbanBoard({ boardId, viewMode = "kanban" }: KanbanBoar
 
     const columns: Column[] = board?.columns || [];
 
-  if (viewMode === "table") {
-    return (
-      <>
-        <BoardTableView 
-          boardId={boardId}
-          columns={columns}
-          tasks={tasks}
-          onTaskClick={openTask}
-        />
-        {isTaskModalOpen && (
-          <TaskDetailModal
-            task={selectedTask}
-            boardId={boardId}
-            defaultColumnId={newTaskColumn || undefined}
-            onClose={() => {
-              setIsTaskModalOpen(false);
-              setSelectedTask(null);
-              setNewTaskColumn(null);
-            }}
-          />
-        )}
-      </>
-    );
-  }
 
   return (
     <>

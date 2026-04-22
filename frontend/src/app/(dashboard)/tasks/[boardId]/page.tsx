@@ -21,7 +21,6 @@ export default function BoardPage() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsName, setSettingsName] = useState("");
   const [settingsDescription, setSettingsDescription] = useState("");
-  const [viewMode, setViewMode] = useState<"kanban" | "table">("table");
 
   const { data: board, isLoading } = useQuery({
     queryKey: ["board", boardId],
@@ -145,27 +144,7 @@ export default function BoardPage() {
             Automate / {board?.automations?.length || 0}
           </button>
 
-          <div className="divider-vertical" style={{ height: "24px", margin: "0 var(--space-2)" }} />
 
-          {/* View Toggle */}
-          <div style={{ display: "flex", background: "var(--bg-elevated)", padding: "2px", borderRadius: "var(--radius-md)" }}>
-            <button 
-              className={`btn btn-sm ${viewMode === "table" ? "btn-secondary" : "btn-ghost"}`} 
-              onClick={() => setViewMode("table")}
-              style={{ border: "none" }}
-            >
-              Table
-            </button>
-            <button 
-              className={`btn btn-sm ${viewMode === "kanban" ? "btn-secondary" : "btn-ghost"}`} 
-              onClick={() => setViewMode("kanban")}
-              style={{ border: "none" }}
-            >
-              Kanban
-            </button>
-          </div>
-
-          <div className="divider-vertical" style={{ height: "24px", margin: "0 var(--space-2)" }} />
 
           <div style={{ display: "flex" }}>
             {board?.members?.slice(0, 5).map((m: {id: string; full_name_en: string}) => (
@@ -193,7 +172,7 @@ export default function BoardPage() {
 
       {/* Kanban Board / Table */}
       <div style={{ flex: 1, overflow: "hidden" }}>
-        <KanbanBoard boardId={boardId} viewMode={viewMode} />
+        <KanbanBoard boardId={boardId} />
       </div>
 
       {/* Invite Modal */}

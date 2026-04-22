@@ -131,41 +131,70 @@ export default function InventoryPage() {
             <p>{isAr ? "المستودع فارغ" : "Inventory is empty"}</p>
           </div>
         ) : (
-          <div className="table-wrapper">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>{isAr ? "رمز" : "SKU"}</th>
-                  <th>{isAr ? "الصنف" : "Item"}</th>
-                  <th>{isAr ? "التصنيف" : "Category"}</th>
-                  <th>{isAr ? "الكمية الحالية" : "Quantity"}</th>
-                  <th>{isAr ? "الحد الأدنى" : "Min Qty"}</th>
-                  <th>{isAr ? "الوحدة" : "Unit"}</th>
-                  <th>{isAr ? "حالة المخزون" : "Status"}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(activeTab === "items" ? items : lowStockItems)?.map((item: any) => (
-                  <tr key={item.id}>
-                    <td style={{ fontFamily: "monospace", fontSize: "0.85rem", color: "var(--text-muted)" }}>{item.sku}</td>
-                    <td style={{ fontWeight: 600 }}>{item.name}</td>
-                    <td>{item.category_name || "—"}</td>
-                    <td style={{ fontWeight: 700, fontSize: "1.1rem", color: item.is_low_stock ? "var(--color-danger)" : "inherit" }}>
-                      {item.quantity}
-                    </td>
-                    <td style={{ color: "var(--text-secondary)" }}>{item.min_quantity}</td>
-                    <td style={{ color: "var(--text-secondary)" }}>{item.unit}</td>
-                    <td>
-                      {item.is_low_stock ? (
-                        <span className="badge badge-danger"><AlertTriangle size={12} /> {isAr ? "ناقص" : "Low"}</span>
-                      ) : (
-                        <span className="badge badge-success"><Check size={12} /> {isAr ? "متوفر" : "OK"}</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "var(--space-4)", padding: "var(--space-4)" }}>
+            {(activeTab === "items" ? items : lowStockItems)?.map((item: any) => (
+              <div 
+                key={item.id}
+                style={{
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "var(--radius-lg)",
+                  padding: "var(--space-5)",
+                  position: "relative",
+                  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                  cursor: "pointer",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "var(--space-3)",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-4px)";
+                  e.currentTarget.style.boxShadow = "0 12px 20px rgba(0,0,0,0.08)";
+                  e.currentTarget.style.borderColor = "var(--border-default)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "none";
+                  e.currentTarget.style.boxShadow = "0 2px 4px rgba(0,0,0,0.02)";
+                  e.currentTarget.style.borderColor = "var(--border-subtle)";
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", background: "var(--bg-elevated)", padding: "2px 8px", borderRadius: "12px", fontFamily: "monospace", display: "inline-block", marginBottom: "4px" }}>
+                      {item.sku}
+                    </span>
+                    <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700, color: "var(--text-primary)", display: "flex", gap: "6px", alignItems: "center" }}>
+                      {item.name}
+                    </h3>
+                    <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: "var(--brand-primary)", fontWeight: 500 }}>{item.category_name || "—"}</p>
+                  </div>
+                  {item.is_low_stock ? (
+                    <span className="badge badge-danger" style={{ padding: "6px 10px" }}><AlertTriangle size={14} /></span>
+                  ) : (
+                    <span className="badge badge-success" style={{ padding: "6px 10px" }}><Check size={14} /></span>
+                  )}
+                </div>
+
+                <div style={{ padding: "var(--space-3) var(--space-4)", background: "var(--bg-subtle)", borderRadius: "var(--radius-md)", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
+                  <div>
+                    <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>{isAr ? "الكمية" : "Quantity"}</p>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
+                      <span style={{ fontSize: "1.5rem", fontWeight: 800, color: item.is_low_stock ? "var(--color-danger)" : "var(--text-primary)", lineHeight: 1 }}>{item.quantity}</span>
+                      <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 500 }}>{item.unit}</span>
+                    </div>
+                  </div>
+                  <div style={{ width: "1px", height: "30px", background: "var(--border-subtle)" }} />
+                  <div>
+                    <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>{isAr ? "الحد الأدنى" : "Min Qty"}</p>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
+                      <span style={{ fontSize: "1.1rem", fontWeight: 600, color: "var(--text-secondary)", lineHeight: 1 }}>{item.min_quantity}</span>
+                      <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 500 }}>{item.unit}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
