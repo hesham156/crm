@@ -175,19 +175,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo hint */}
-          <div style={{
-            marginTop: "var(--space-6)",
-            padding: "var(--space-3)",
-            background: "rgba(249,115,22,0.08)",
-            borderRadius: "var(--radius-md)",
-            border: "1px solid rgba(249,115,22,0.2)",
-          }}>
-            <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", textAlign: "center" }}>
-              <strong style={{ color: "var(--brand-primary)" }}>Demo:</strong>{" "}
-              admin@prosticker.com / admin
-            </p>
-          </div>
+       
         </div>
 
         <p style={{
