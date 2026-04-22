@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { MentionTextArea } from "@/components/ui/MentionTextArea";
+import { MultiSelectSearch } from "@/components/ui/MultiSelectSearch";
 
 const PRIORITIES = [
   { value: "low", label: "Low", color: "var(--priority-low)" },
@@ -37,14 +38,14 @@ export default function TaskDetailModal({
   const [commentBody, setCommentBody] = useState("");
   const [timeMinutes, setTimeMinutes] = useState("");
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
       title: task?.title || "",
       description: task?.description || "",
       priority: task?.priority || "normal",
       due_date: task?.due_date || "",
       column: task?.column || defaultColumnId || "",
-      assigned_to: task?.assigned_to?.length ? task.assigned_to[0].id : "",
+      assigned_to: task?.assigned_to?.length ? task.assigned_to.map(u => u.id) : [],
     },
   });
 
@@ -157,7 +158,7 @@ export default function TaskDetailModal({
     const payload = { ...data };
     if (payload.due_date === "") payload.due_date = null;
     if (payload.assigned_to) {
-      payload.assigned_to_ids = [payload.assigned_to];
+      payload.assigned_to_ids = Array.isArray(payload.assigned_to) ? payload.assigned_to : [payload.assigned_to];
     } else {
       payload.assigned_to_ids = [];
     }
@@ -213,12 +214,12 @@ export default function TaskDetailModal({
                 </div>
                 <div className="form-group">
                   <label className="form-label">Assign To</label>
-                  <select {...register("assigned_to")} className="form-input form-select">
-                    <option value="">Unassigned</option>
-                    {users.map((u: {id: string; full_name_en: string; full_name_ar: string}) => (
-                      <option key={u.id} value={u.id}>{u.full_name_en}</option>
-                    ))}
-                  </select>
+                  <MultiSelectSearch
+                    options={users.map((u: any) => ({ id: u.id, label: u.full_name_en }))}
+                    selectedIds={watch("assigned_to") || []}
+                    onChange={(ids) => setValue("assigned_to", ids)}
+                    placeholder="Select assignees..."
+                  />
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
@@ -446,21 +447,14 @@ export default function TaskDetailModal({
                 </select>
               </div>
 
-              <div>
+              <div style={{ zIndex: 10 }}>
                 <label className="form-label">Assign To</label>
-                <select
-                  className="form-input form-select"
-                  defaultValue={task?.assigned_to?.length ? task.assigned_to[0].id : ""}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    updateMutation.mutate({ assigned_to_ids: val ? [val] : [] });
-                  }}
-                >
-                  <option value="">Unassigned</option>
-                  {users.map((u: {id: string; full_name_en: string; full_name_ar: string}) => (
-                    <option key={u.id} value={u.id}>{u.full_name_en}</option>
-                  ))}
-                </select>
+                <MultiSelectSearch
+                  options={users.map((u: any) => ({ id: u.id, label: u.full_name_en }))}
+                  selectedIds={(taskDetail?.assigned_to || task?.assigned_to || []).map((a: any) => a.id)}
+                  onChange={(ids) => updateMutation.mutate({ assigned_to_ids: ids })}
+                  placeholder="Select assignees..."
+                />
               </div>
 
               <div>

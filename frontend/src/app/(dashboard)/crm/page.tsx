@@ -22,8 +22,9 @@ export default function CRMPage() {
   const { language } = useUIStore();
   const isAr = language === "ar";
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
 
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ["customers"],
@@ -46,8 +47,40 @@ export default function CRMPage() {
     }
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => crmApi.updateCustomer(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["customers"] });
+      toast.success(isAr ? "تم تحديث العميل!" : "Customer updated!");
+      setIsModalOpen(false);
+      setSelectedCustomer(null);
+      reset();
+    },
+    onError: () => {
+      toast.error(isAr ? "حدث خطأ أثناء التحديث" : "Failed to update customer");
+    }
+  });
+
   const onSubmit = (data: any) => {
-    createMutation.mutate(data);
+    if (selectedCustomer) {
+      updateMutation.mutate({ id: selectedCustomer.id, data });
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const handleEdit = (customer: any) => {
+    setSelectedCustomer(customer);
+    Object.keys(customer).forEach(key => {
+      setValue(key, customer[key]);
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedCustomer(null);
+    reset();
   };
 
   return (
@@ -57,7 +90,7 @@ export default function CRMPage() {
           <h1 className="page-title">{isAr ? "إدارة العملاء" : "CRM"}</h1>
           <p className="page-subtitle">{isAr ? "العملاء والعملاء المحتملون" : "Customers, leads and deals"}</p>
         </div>
-        <button id="new-customer-btn" className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+        <button id="new-customer-btn" className="btn btn-primary" onClick={() => { setSelectedCustomer(null); reset(); setIsModalOpen(true); }}>
           <Plus size={16} />{isAr ? "عميل جديد" : "New Customer"}
         </button>
       </div>
@@ -69,7 +102,7 @@ export default function CRMPage() {
           <div className="empty-icon"><Users size={24} /></div>
           <h3>{isAr ? "لا عملاء بعد" : "No customers yet"}</h3>
           <p>{isAr ? "أضف أول عميل للبدء" : "Add your first customer to get started"}</p>
-          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+          <button className="btn btn-primary" onClick={() => { setSelectedCustomer(null); reset(); setIsModalOpen(true); }}>
             <Plus size={16} />{isAr ? "إضافة عميل" : "Add Customer"}
           </button>
         </div>
@@ -96,7 +129,7 @@ export default function CRMPage() {
                   <td><span style={{ display: "flex", alignItems: "center", gap: "6px" }}><Phone size={14} />{c.phone || "—"}</span></td>
                   <td><span className={`badge ${c.type === "customer" ? "badge-success" : c.type === "prospect" ? "badge-warning" : "badge-gray"}`}>{c.type}</span></td>
                   <td><span className="badge" style={{ background: `${STAGE_COLORS[c.stage]}18`, color: STAGE_COLORS[c.stage] }}>{c.stage}</span></td>
-                  <td><button className="btn btn-ghost btn-sm">Edit</button></td>
+                  <td><button className="btn btn-ghost btn-sm" onClick={() => handleEdit(c)}>Edit</button></td>
                 </tr>
               ))}
             </tbody>
@@ -109,8 +142,8 @@ export default function CRMPage() {
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setIsModalOpen(false)}>
           <div className="modal modal-md">
             <div className="modal-header">
-              <h3 className="modal-title">{isAr ? "إضافة عميل جديد" : "Add New Customer"}</h3>
-              <button className="btn btn-ghost btn-sm" onClick={() => setIsModalOpen(false)}><X size={18} /></button>
+              <h3 className="modal-title">{selectedCustomer ? (isAr ? "تعديل العميل" : "Edit Customer") : (isAr ? "إضافة عميل جديد" : "Add New Customer")}</h3>
+              <button className="btn btn-ghost btn-sm" onClick={handleCloseModal}><X size={18} /></button>
             </div>
             <form onSubmit={handleSubmit(onSubmit)}>
               <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
@@ -162,11 +195,11 @@ export default function CRMPage() {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setIsModalOpen(false)}>
+                <button type="button" className="btn btn-secondary" onClick={handleCloseModal}>
                   {isAr ? "إلغاء" : "Cancel"}
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : (isAr ? "إضافة" : "Add Customer")}
+                <button type="submit" className="btn btn-primary" disabled={createMutation.isPending || updateMutation.isPending}>
+                  {(createMutation.isPending || updateMutation.isPending) ? <Loader2 size={16} className="animate-spin" /> : (selectedCustomer ? (isAr ? "تحديث" : "Update") : (isAr ? "إضافة" : "Add Customer"))}
                 </button>
               </div>
             </form>

@@ -75,24 +75,32 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className={`app-sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
+    <aside 
+      className={`app-sidebar ${sidebarCollapsed ? "collapsed" : ""}`}
+      onClick={() => {
+        if (sidebarCollapsed) toggleSidebar();
+      }}
+      style={{ cursor: sidebarCollapsed ? "pointer" : "default" }}
+    >
       {/* Logo */}
-      <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">🖨️</div>
+      <div className="sidebar-logo" style={{ padding: sidebarCollapsed ? "var(--space-5) auto" : "var(--space-5) var(--space-5)", justifyContent: sidebarCollapsed ? "center" : "flex-start" }}>
+        <div className="sidebar-logo-icon" style={{ margin: sidebarCollapsed ? "0 auto" : "0" }}>🖨️</div>
         {!sidebarCollapsed && (
-          <div className="sidebar-logo-text">
-            <h1>ProSticker</h1>
-            <span>ERP Platform</span>
-          </div>
+          <>
+            <div className="sidebar-logo-text">
+              <h1>ProSticker</h1>
+              <span>ERP Platform</span>
+            </div>
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleSidebar(); }}
+              className="btn btn-ghost btn-sm"
+              style={{ marginLeft: "auto", padding: "4px" }}
+              data-tooltip="Collapse sidebar"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          </>
         )}
-        <button
-          onClick={toggleSidebar}
-          className="btn btn-ghost btn-sm"
-          style={{ marginLeft: "auto", padding: "4px" }}
-          data-tooltip={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {sidebarCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
       </div>
 
       {/* Navigation */}
