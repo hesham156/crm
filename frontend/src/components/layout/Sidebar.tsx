@@ -6,7 +6,7 @@ import { useUIStore } from "@/store/useUIStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import {
   LayoutDashboard, Columns, Users, ShoppingBag, Palette,
-  Factory, Package, BarChart3, Settings, ChevronLeft,
+  Package, BarChart3, Settings, ChevronLeft,
   ChevronRight, Bell, Globe, MonitorPlay, DatabaseBackup
 } from "lucide-react";
 
@@ -42,7 +42,6 @@ const NAV_SECTIONS: { title: string; titleAr: string; items: NavItem[] }[] = [
     titleAr: "العمليات",
     items: [
       { label: "Design", labelAr: "التصميم", href: "/design", icon: <Palette size={18} />, roles: ["admin", "manager", "designer"] },
-      { label: "Production", labelAr: "الإنتاج", href: "/production", icon: <Factory size={18} />, roles: ["admin", "manager", "production"] },
       { label: "Inventory", labelAr: "المخزون", href: "/inventory", icon: <Package size={18} />, roles: ["admin", "manager", "production", "sales"] },
     ],
   },

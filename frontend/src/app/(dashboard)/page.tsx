@@ -172,7 +172,6 @@ export default function DashboardPage() {
   const role = stats?.role || user?.role || "sales";
   const isSales = ["admin", "manager", "sales"].includes(role);
   const isDesigner = ["admin", "manager", "designer"].includes(role);
-  const isProduction = ["admin", "manager", "production"].includes(role);
   const isManager = ["admin", "manager"].includes(role);
 
   const formatCurrency = (n: number) =>
@@ -347,45 +346,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* ── Production Stats ───────────────────────────────────────────── */}
-      {isProduction && !isLoading && stats?.production && (
-        <div style={{ marginBottom: "var(--space-8)" }}>
-          <h2 style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: "0.85rem", color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "var(--space-4)" }}>
-            {isAr ? "⚙️ إحصائيات الإنتاج" : "⚙️ Production Stats"}
-          </h2>
-          <div className="grid-4">
-            <StatCard
-              icon={<Package size={20} />}
-              label={isAr ? "مراحل نشطة" : "Active Stages"}
-              value={stats.production.active_stages}
-              color="var(--color-info)"
-              href="/production"
-            />
-            <StatCard
-              icon={<CheckCircle size={20} />}
-              label={isAr ? "مكتملة هذا الشهر" : "Done This Month"}
-              value={stats.production.completed_this_month}
-              color="var(--color-success)"
-              href="/production"
-              trend={stats.production.completed_this_month ? `+${stats.production.completed_this_month}` : undefined}
-            />
-            <StatCard
-              icon={<Activity size={20} />}
-              label={isAr ? "طلبات في الإنتاج" : "In Production"}
-              value={stats.production.jobs_in_production}
-              color="var(--brand-primary)"
-              href="/sales/jobs"
-            />
-            <StatCard
-              icon={<ArrowRight size={20} />}
-              label={isAr ? "قيد التوصيل" : "Out for Delivery"}
-              value={stats.production.jobs_in_delivery}
-              color="var(--brand-secondary)"
-              href="/sales/jobs"
-            />
-          </div>
-        </div>
-      )}
 
       {/* ── Two-Column: Pipeline + Quick Panel ─────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: isSales ? "1fr 360px" : "1fr 360px", gap: "var(--space-6)" }}>
