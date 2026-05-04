@@ -7,7 +7,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import {
   LayoutDashboard, Columns, Users, ShoppingBag, Palette,
   Factory, Package, BarChart3, Settings, ChevronLeft,
-  ChevronRight, Bell, Globe, MonitorPlay
+  ChevronRight, Bell, Globe, MonitorPlay, DatabaseBackup
 } from "lucide-react";
 
 interface NavItem {
@@ -59,6 +59,7 @@ const NAV_SECTIONS: { title: string; titleAr: string; items: NavItem[] }[] = [
     items: [
       { label: "Users & Roles", labelAr: "المستخدمون والأدوار", href: "/settings/users", icon: <Settings size={18} />, roles: ["admin", "manager"] },
       { label: "Boards Monitor", labelAr: "مراقبة اللوحات", href: "/tasks/admin", icon: <MonitorPlay size={18} />, roles: ["admin", "manager"] },
+      { label: "Backup", labelAr: "النسخ الاحتياطي", href: "/backup", icon: <DatabaseBackup size={18} />, roles: ["admin"] },
     ],
   },
 ];

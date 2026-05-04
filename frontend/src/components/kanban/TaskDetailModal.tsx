@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { tasksApi, usersApi } from "@/lib/api";
@@ -8,7 +8,8 @@ import { useAuthStore } from "@/store/useAuthStore";
 import toast from "react-hot-toast";
 import {
   X, Send, Clock, Paperclip, Flag, Calendar,
-  User, MessageSquare, Plus, Loader2, MoreHorizontal
+  User, MessageSquare, Plus, Loader2, MoreHorizontal,
+  Link2, Upload, FileText, Trash2, ExternalLink, File
 } from "lucide-react";
 import { format } from "date-fns";
 import { MentionTextArea } from "@/components/ui/MentionTextArea";
@@ -37,6 +38,11 @@ export default function TaskDetailModal({
   const [activeTab, setActiveTab] = useState<"details" | "comments" | "time" | "activity">("details");
   const [commentBody, setCommentBody] = useState("");
   const [timeMinutes, setTimeMinutes] = useState("");
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkName, setLinkName] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
@@ -153,6 +159,53 @@ export default function TaskDetailModal({
       toast.success(action === "start" ? "Timer started!" : "Timer stopped and time logged!");
     },
   });
+
+  const uploadAttachmentMutation = useMutation({
+    mutationFn: (file: File) => tasksApi.uploadAttachment(task!.id, file),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["task", task!.id] });
+      toast.success("File uploaded!");
+    },
+    onError: (err: any) => {
+      const detail = err?.response?.data;
+      const msg = typeof detail === "object"
+        ? Object.entries(detail).map(([k, v]) => `${k}: ${Array.isArray(v) ? v[0] : v}`).join(", ")
+        : "Failed to upload file";
+      toast.error(msg);
+    },
+  });
+
+  const addLinkMutation = useMutation({
+    mutationFn: ({ url, name }: { url: string; name: string }) =>
+      tasksApi.addLinkAttachment(task!.id, url, name),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["task", task!.id] });
+      setLinkUrl("");
+      setLinkName("");
+      setShowLinkInput(false);
+      toast.success("Link added!");
+    },
+    onError: () => toast.error("Failed to add link"),
+  });
+
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: (attachmentId: string) => tasksApi.deleteAttachment(attachmentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["task", task!.id] });
+      toast.success("Attachment removed");
+    },
+    onError: () => toast.error("Failed to remove attachment"),
+  });
+
+  const handleFilesDrop = (files: FileList | null) => {
+    if (!files || !task) return;
+    Array.from(files).forEach((f) => uploadAttachmentMutation.mutate(f));
+  };
+
+  const handleAddLink = () => {
+    if (!linkUrl.trim()) return;
+    addLinkMutation.mutate({ url: linkUrl.trim(), name: linkName.trim() || linkUrl.trim() });
+  };
 
   const onSubmit = (data: any) => {
     const payload = { ...data };
@@ -303,6 +356,177 @@ export default function TaskDetailModal({
                       ))}
                     </div>
                   )}
+
+                  {/* ─── Attachments Section ─── */}
+                  <div style={{ marginTop: "var(--space-5)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--space-3)" }}>
+                      <h4 style={{ fontWeight: 700, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "6px", margin: 0 }}>
+                        <Paperclip size={14} style={{ color: "var(--brand-primary)" }} />
+                        Attachments
+                        {taskDetail?.attachments?.length > 0 && (
+                          <span style={{ background: "var(--brand-primary)", color: "white", borderRadius: "999px", fontSize: "0.7rem", padding: "1px 6px" }}>
+                            {taskDetail.attachments.length}
+                          </span>
+                        )}
+                      </h4>
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+                          onClick={() => { setShowLinkInput((v) => !v); }}
+                          title="Add link"
+                        >
+                          <Link2 size={12} /> Link
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: "0.75rem", padding: "4px 8px" }}
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadAttachmentMutation.isPending}
+                          title="Upload file"
+                        >
+                          {uploadAttachmentMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                          Upload
+                        </button>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          style={{ display: "none" }}
+                          onChange={(e) => handleFilesDrop(e.target.files)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Link input */}
+                    {showLinkInput && (
+                      <div style={{
+                        background: "var(--bg-elevated)",
+                        border: "1px solid var(--border-default)",
+                        borderRadius: "var(--radius-md)",
+                        padding: "var(--space-3)",
+                        marginBottom: "var(--space-3)",
+                        display: "flex", flexDirection: "column", gap: "var(--space-2)"
+                      }}>
+                        <input
+                          className="form-input"
+                          style={{ fontSize: "0.85rem" }}
+                          placeholder="Paste URL (e.g. https://drive.google.com/...)" 
+                          value={linkUrl}
+                          onChange={(e) => setLinkUrl(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleAddLink()}
+                          autoFocus
+                        />
+                        <input
+                          className="form-input"
+                          style={{ fontSize: "0.85rem" }}
+                          placeholder="Label (optional)"
+                          value={linkName}
+                          onChange={(e) => setLinkName(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleAddLink()}
+                        />
+                        <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end" }}>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setShowLinkInput(false)}>Cancel</button>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={handleAddLink}
+                            disabled={!linkUrl.trim() || addLinkMutation.isPending}
+                          >
+                            {addLinkMutation.isPending ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />}
+                            Add Link
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Drag & Drop Zone */}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                      onDragLeave={() => setIsDragOver(false)}
+                      onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFilesDrop(e.dataTransfer.files); }}
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{
+                        border: `2px dashed ${isDragOver ? "var(--brand-primary)" : "var(--border-subtle)"}`,
+                        borderRadius: "var(--radius-md)",
+                        padding: "var(--space-4)",
+                        textAlign: "center",
+                        cursor: "pointer",
+                        background: isDragOver ? "var(--brand-primary-alpha, rgba(249,115,22,0.07))" : "transparent",
+                        transition: "all 0.2s",
+                        marginBottom: taskDetail?.attachments?.length > 0 ? "var(--space-3)" : 0,
+                        display: taskDetail?.attachments?.length === 0 ? "block" : "none",
+                      }}
+                    >
+                      <Upload size={20} style={{ color: "var(--text-muted)", marginBottom: "4px" }} />
+                      <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", margin: 0 }}>Drag & drop files here, or click to browse</p>
+                    </div>
+
+                    {/* Attachments List */}
+                    {taskDetail?.attachments?.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                        {taskDetail.attachments.map((att: any) => (
+                          <div key={att.id} style={{
+                            display: "flex", alignItems: "center", gap: "var(--space-2)",
+                            padding: "var(--space-2) var(--space-3)",
+                            background: "var(--bg-elevated)",
+                            borderRadius: "var(--radius-md)",
+                            border: "1px solid var(--border-subtle)",
+                          }}>
+                            {att.attachment_type === "link"
+                              ? <Link2 size={14} style={{ color: "#3b82f6", flexShrink: 0 }} />
+                              : <File size={14} style={{ color: "var(--brand-primary)", flexShrink: 0 }} />
+                            }
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {att.filename}
+                              </p>
+                              <p style={{ margin: 0, fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                                {att.uploaded_by_name} · {format(new Date(att.uploaded_at), "MMM d, HH:mm")}
+                                {att.attachment_type === "file" && att.file_size > 0 && (
+                                  <> · {(att.file_size / 1024).toFixed(1)} KB</>
+                                )}
+                              </p>
+                            </div>
+                            <a
+                              href={att.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: "var(--text-muted)", display: "flex" }}
+                              title="Open"
+                            >
+                              <ExternalLink size={13} />
+                            </a>
+                            <button
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", display: "flex", padding: "2px" }}
+                              onClick={() => deleteAttachmentMutation.mutate(att.id)}
+                              title="Remove"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
+                        {/* small drag zone when items exist */}
+                        <div
+                          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+                          onDragLeave={() => setIsDragOver(false)}
+                          onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleFilesDrop(e.dataTransfer.files); }}
+                          onClick={() => fileInputRef.current?.click()}
+                          style={{
+                            border: `1px dashed ${isDragOver ? "var(--brand-primary)" : "var(--border-subtle)"}`,
+                            borderRadius: "var(--radius-sm)",
+                            padding: "var(--space-2)",
+                            textAlign: "center",
+                            cursor: "pointer",
+                            fontSize: "0.75rem",
+                            color: "var(--text-muted)",
+                            transition: "all 0.2s",
+                          }}
+                        >
+                          + Drop or click to add more files
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

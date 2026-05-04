@@ -177,6 +177,7 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
                   tasks={columnTasks}
                   onTaskClick={openTask}
                   onAddTask={() => openNewTask(column.id)}
+                  boardId={boardId}
                 />
               );
             })}

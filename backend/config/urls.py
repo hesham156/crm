@@ -18,6 +18,7 @@ urlpatterns = [
     path("api/inventory/", include("apps.inventory.urls")),
     path("api/notifications/", include("apps.notifications.urls")),
     path("api/analytics/", include("apps.analytics.urls")),
+    path("api/backup/",    include("apps.backup.urls")),
 ]
 
 # Serve media & static files (nginx handles this in production, but needed as fallback)

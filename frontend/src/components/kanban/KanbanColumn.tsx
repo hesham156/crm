@@ -23,12 +23,13 @@ interface Column { id: string; name: string; color: string; task_count: number; 
 interface Task { id: string; title: string; priority: string; due_date: string | null; assigned_to: unknown[]; tags: unknown[]; comments_count: number; subtasks_count: number; time_logged: number; }
 
 export default function KanbanColumn({
-  column, tasks, onTaskClick, onAddTask,
+  column, tasks, onTaskClick, onAddTask, boardId,
 }: {
   column: Column;
   tasks: any[];
   onTaskClick: (task: any) => void;
   onAddTask: () => void;
+  boardId: string;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const dotColor = COLOR_MAP[column.color] || "var(--col-gray)";
@@ -50,7 +51,7 @@ export default function KanbanColumn({
     if (confirm("Are you sure you want to delete this column?")) {
       try {
         await tasksApi.deleteColumn(column.id);
-        qc.invalidateQueries({ queryKey: ["board"] });
+        qc.invalidateQueries({ queryKey: ["board", boardId] });
         toast.success("Column deleted");
       } catch (err) {
         toast.error("Failed to delete column");
@@ -64,7 +65,7 @@ export default function KanbanColumn({
     if (newName && newName.trim() && newName !== column.name) {
       try {
         await tasksApi.updateColumn(column.id, { name: newName.trim() });
-        qc.invalidateQueries({ queryKey: ["board"] });
+        qc.invalidateQueries({ queryKey: ["board", boardId] });
         toast.success("Column renamed");
       } catch (err) {
         toast.error("Failed to rename column");
@@ -76,13 +77,14 @@ export default function KanbanColumn({
   const handleChangeColor = async (color: string) => {
     try {
       await tasksApi.updateColumn(column.id, { color });
-      qc.invalidateQueries({ queryKey: ["board"] });
+      qc.invalidateQueries({ queryKey: ["board", boardId] });
       toast.success("Color updated");
     } catch (err) {
       toast.error("Failed to update color");
     }
     setIsMenuOpen(false);
   };
+
 
   return (
     <div

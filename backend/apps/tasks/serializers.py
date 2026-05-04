@@ -43,13 +43,26 @@ class ColumnSerializer(serializers.ModelSerializer):
 class TaskAttachmentSerializer(serializers.ModelSerializer):
     uploaded_by_name = serializers.CharField(source="uploaded_by.full_name_en", read_only=True)
     file_url = serializers.SerializerMethodField()
+    # file is write-only (used during upload, not returned in response)
+    file = serializers.FileField(write_only=True, required=False)
 
     class Meta:
         model = TaskAttachment
-        fields = ["id", "filename", "file_url", "file_size", "uploaded_by", "uploaded_by_name", "uploaded_at"]
-        read_only_fields = ["uploaded_at"]
+        fields = [
+            "id", "attachment_type", "filename", "file_url", "external_url",
+            "file_size", "file", "uploaded_by", "uploaded_by_name", "uploaded_at"
+        ]
+        read_only_fields = ["uploaded_at", "uploaded_by"]
+        extra_kwargs = {
+            "filename": {"required": False, "default": ""},
+            "attachment_type": {"required": False, "default": "file"},
+            "file_size": {"required": False, "default": 0},
+            "external_url": {"required": False, "default": ""},
+        }
 
     def get_file_url(self, obj):
+        if obj.attachment_type == "link":
+            return obj.external_url
         request = self.context.get("request")
         if obj.file and request:
             return request.build_absolute_uri(obj.file.url)

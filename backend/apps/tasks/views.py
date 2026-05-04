@@ -4,6 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db.models import Count, Prefetch
 
@@ -249,6 +250,7 @@ class TaskTimerToggleView(APIView):
 class TaskAttachmentView(generics.ListCreateAPIView):
     serializer_class = TaskAttachmentSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
         task_id = self.kwargs.get("task_id")
@@ -256,13 +258,43 @@ class TaskAttachmentView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         task_id = self.kwargs.get("task_id")
-        file = self.request.FILES.get("file")
-        serializer.save(
-            task_id=task_id,
-            uploaded_by=self.request.user,
-            filename=file.name if file else "",
-            file_size=file.size if file else 0,
-        )
+        attachment_type = self.request.data.get("attachment_type", "file")
+
+        if attachment_type == "link":
+            external_url = self.request.data.get("external_url", "")
+            filename = self.request.data.get("filename") or external_url
+            serializer.save(
+                task_id=task_id,
+                uploaded_by=self.request.user,
+                attachment_type="link",
+                file=None,
+                external_url=external_url,
+                filename=filename,
+                file_size=0,
+            )
+        else:
+            file = self.request.FILES.get("file")
+            if not file:
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError({"file": "No file was provided."})
+            serializer.save(
+                task_id=task_id,
+                uploaded_by=self.request.user,
+                attachment_type="file",
+                file=file,
+                filename=file.name,
+                file_size=file.size,
+                external_url="",
+            )
+
+
+
+class TaskAttachmentDeleteView(generics.DestroyAPIView):
+    serializer_class = TaskAttachmentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return TaskAttachment.objects.all()
 
 
 class TagListCreateView(generics.ListCreateAPIView):
