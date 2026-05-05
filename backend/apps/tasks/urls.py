@@ -15,6 +15,7 @@ urlpatterns = [
     path("tasks/<uuid:task_id>/comments/", views.CommentListCreateView.as_view(), name="task_comments"),
     path("tasks/<uuid:task_id>/time-log/", views.TimeLogCreateView.as_view(), name="task_timelog"),
     path("tasks/<uuid:task_id>/attachments/", views.TaskAttachmentView.as_view(), name="task_attachments"),
+    path("attachments/<uuid:pk>/", views.TaskAttachmentDeleteView.as_view(), name="attachment_delete"),
     path("tags/", views.TagListCreateView.as_view(), name="tags"),
     path("admin-overview/", views.AdminBoardsOverviewView.as_view(), name="admin_overview"),
 ]

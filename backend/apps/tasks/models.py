@@ -118,12 +118,19 @@ class Task(models.Model):
 
 
 class TaskAttachment(models.Model):
+    TYPE_CHOICES = [
+        ("file", "File Upload"),
+        ("link", "External Link"),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="attachments")
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
     )
-    file = models.FileField(upload_to="task_attachments/%Y/%m/")
+    attachment_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default="file")
+    file = models.FileField(upload_to="task_attachments/%Y/%m/", null=True, blank=True)
+    external_url = models.URLField(max_length=2000, blank=True, default="")
     filename = models.CharField(max_length=255)
     file_size = models.PositiveIntegerField(default=0, help_text="Bytes")
     uploaded_at = models.DateTimeField(auto_now_add=True)

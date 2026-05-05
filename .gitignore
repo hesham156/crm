@@ -23,3 +23,9 @@ media/
 .DS_Store
 backend/credentials.json/
 credentials.json
+
+# Backups (scripts are tracked, but output ZIPs are not)
+erp-backups/
+backup/*.log
+backup/_restore_temp/
+*.before_restore

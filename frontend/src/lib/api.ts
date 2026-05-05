@@ -107,6 +107,22 @@ export const tasksApi = {
   toggleTimer: (taskId: string, action: "start" | "stop") =>
     apiClient.post(`/tasks/tasks/${taskId}/timer/`, { action }),
 
+  attachments: (taskId: string) => apiClient.get(`/tasks/tasks/${taskId}/attachments/`),
+  uploadAttachment: (taskId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("attachment_type", "file");
+    return apiClient.post(`/tasks/tasks/${taskId}/attachments/`, form);
+  },
+  addLinkAttachment: (taskId: string, url: string, filename?: string) =>
+    apiClient.post(`/tasks/tasks/${taskId}/attachments/`, {
+      attachment_type: "link",
+      external_url: url,
+      filename: filename || url,
+    }),
+  deleteAttachment: (attachmentId: string) =>
+    apiClient.delete(`/tasks/attachments/${attachmentId}/`),
+
   tags: () => apiClient.get("/tasks/tags/"),
   
   createAutomation: (boardId: string, data: any) =>
@@ -181,4 +197,19 @@ export const inventoryApi = {
   transactions: (params?: Record<string, unknown>) => apiClient.get("/inventory/transactions/", { params }),
   createTransaction: (data: unknown) => apiClient.post("/inventory/transactions/", data),
   lowStock: () => apiClient.get("/inventory/reports/low-stock/"),
+};
+
+// ─── Backup ───────────────────────────────────────────────
+export const backupApi = {
+  list:    () => apiClient.get("/backup/"),
+  stats:   () => apiClient.get("/backup/stats/"),
+  create:  () => apiClient.post("/backup/create/"),
+  delete:  (filename: string) => apiClient.delete(`/backup/${filename}/`),
+  restore: (filename: string, opts: { restore_db?: boolean; restore_media?: boolean; restore_config?: boolean }) =>
+    apiClient.post(`/backup/${filename}/restore/`, opts),
+  import:  (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiClient.post("/backup/import/", form);
+  },
 };
