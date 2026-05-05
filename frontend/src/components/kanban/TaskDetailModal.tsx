@@ -15,13 +15,17 @@ import { format } from "date-fns";
 import { MentionTextArea } from "@/components/ui/MentionTextArea";
 import { MultiSelectSearch } from "@/components/ui/MultiSelectSearch";
 
-// Fixes malformed attachment URLs where the server base URL is prepended
-// to an already-absolute external storage URL.
-// e.g. "http://server.com/api/.../http/files.com/..." → "http://files.com/..."
+// Fixes malformed attachment URLs where Django's build_absolute_uri prepends
+// the server base URL to an already-absolute external storage URL, and strips
+// the "//" from the embedded protocol.
+// e.g. "http://server.com/.../http/files.wafarle.com/..." → "http://files.wafarle.com/..."
 function fixAttachmentUrl(url: string): string {
   if (!url) return url;
-  const secondHttp = url.indexOf("http", 8); // skip the first "http"
-  if (secondHttp > 0) return url.substring(secondHttp);
+  // Match "/https/" or "/http/" embedded inside the URL (Django strips :// → /)
+  const match = url.match(/\/(https?)\/(.+)$/);
+  if (match) {
+    return `${match[1]}://${match[2]}`;
+  }
   return url;
 }
 
