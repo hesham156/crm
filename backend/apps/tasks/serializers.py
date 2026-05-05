@@ -51,8 +51,14 @@ class TaskAttachmentSerializer(serializers.ModelSerializer):
 
     def get_file_url(self, obj):
         request = self.context.get("request")
-        if obj.file and request:
-            return request.build_absolute_uri(obj.file.url)
+        if obj.file:
+            url = obj.file.url
+            # If the URL is already absolute (e.g. from external storage like S3 or custom file server),
+            # return it directly without prepending the server's base URL.
+            if url.startswith("http://") or url.startswith("https://"):
+                return url
+            if request:
+                return request.build_absolute_uri(url)
         return None
 
 
