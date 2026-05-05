@@ -15,6 +15,16 @@ import { format } from "date-fns";
 import { MentionTextArea } from "@/components/ui/MentionTextArea";
 import { MultiSelectSearch } from "@/components/ui/MultiSelectSearch";
 
+// Fixes malformed attachment URLs where the server base URL is prepended
+// to an already-absolute external storage URL.
+// e.g. "http://server.com/api/.../http/files.com/..." → "http://files.com/..."
+function fixAttachmentUrl(url: string): string {
+  if (!url) return url;
+  const secondHttp = url.indexOf("http", 8); // skip the first "http"
+  if (secondHttp > 0) return url.substring(secondHttp);
+  return url;
+}
+
 const PRIORITIES = [
   { value: "low", label: "Low", color: "var(--priority-low)" },
   { value: "normal", label: "Normal", color: "var(--priority-normal)" },
@@ -488,7 +498,7 @@ export default function TaskDetailModal({
                               </p>
                             </div>
                             <a
-                              href={att.file_url}
+                              href={fixAttachmentUrl(att.file_url)}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{ color: "var(--text-muted)", display: "flex" }}
