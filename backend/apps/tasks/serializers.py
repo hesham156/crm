@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps.accounts.serializers import UserListSerializer
-from .models import Board, Column, Task, Comment, TimeLog, TaskAttachment, Tag, BoardAutomation, TaskActivity
+from .models import Board, Column, Task, Comment, TimeLog, TaskAttachment, Tag, BoardAutomation, TaskActivity, BoardCustomField, Sprint
 
 
 class TaskActivitySerializer(serializers.ModelSerializer):
@@ -26,6 +26,57 @@ class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = ["id", "name", "color"]
+
+
+class BoardCustomFieldSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BoardCustomField
+        fields = ["id", "board", "name", "field_type", "options", "position", "is_required", "created_at"]
+        read_only_fields = ["created_at", "board"]
+
+
+class SprintTaskSerializer(serializers.ModelSerializer):
+    column_name = serializers.CharField(source="column.name", read_only=True)
+
+    class Meta:
+        model = Task
+        fields = ["id", "title", "story_points", "column_name", "priority"]
+
+
+class SprintSerializer(serializers.ModelSerializer):
+    task_count = serializers.SerializerMethodField()
+    completed_points = serializers.SerializerMethodField()
+    total_points = serializers.SerializerMethodField()
+    tasks = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Sprint
+        fields = [
+            "id", "board", "name", "goal", "status",
+            "start_date", "end_date", "velocity",
+            "task_count", "completed_points", "total_points",
+            "tasks", "created_by", "created_at",
+        ]
+        read_only_fields = ["created_by", "created_at"]
+
+    def get_task_count(self, obj):
+        return obj.tasks.filter(is_archived=False).count()
+
+    def get_completed_points(self, obj):
+        from django.db.models import Sum
+        return obj.tasks.filter(
+            is_archived=False, column__name__iexact="done"
+        ).aggregate(s=Sum("story_points"))["s"] or 0
+
+    def get_total_points(self, obj):
+        from django.db.models import Sum
+        return obj.tasks.filter(is_archived=False).aggregate(
+            s=Sum("story_points")
+        )["s"] or 0
+
+    def get_tasks(self, obj):
+        tasks = obj.tasks.filter(is_archived=False).select_related("column").order_by("position", "-created_at")
+        return SprintTaskSerializer(tasks, many=True).data
 
 
 class ColumnSerializer(serializers.ModelSerializer):
@@ -154,6 +205,9 @@ class TaskSerializer(serializers.ModelSerializer):
             "job", "is_archived",
             "subtasks_count", "comments_count",
             "blocked_by", "blocked_by_ids", "is_blocked", "progress",
+            "recurrence_rule", "recurrence_interval", "recurrence_end_date", "is_recurring_template",
+            "custom_field_values",
+            "sprint", "story_points",
             "created_at", "updated_at",
         ]
         read_only_fields = ["created_by", "time_logged", "created_at", "updated_at", "blocked_by", "is_timer_running", "timer_started_at"]
@@ -344,6 +398,7 @@ class TaskDetailSerializer(TaskSerializer):
 class BoardSerializer(serializers.ModelSerializer):
     columns = ColumnSerializer(many=True, read_only=True)
     automations = BoardAutomationSerializer(many=True, read_only=True)
+    custom_fields = BoardCustomFieldSerializer(many=True, read_only=True)
     members = UserListSerializer(many=True, read_only=True)
     member_ids = serializers.PrimaryKeyRelatedField(
         many=True, write_only=True,
@@ -361,7 +416,7 @@ class BoardSerializer(serializers.ModelSerializer):
             "members", "member_ids",
             "is_private", "task_count",
             "created_at", "updated_at",
-            "columns", "automations"
+            "columns", "automations", "custom_fields"
         ]
         read_only_fields = ["created_by", "created_at", "updated_at"]
 

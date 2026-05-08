@@ -21,11 +21,19 @@ export default function TopBar() {
   const router = useRouter();
   const { user, logout, refreshToken } = useAuthStore();
   const { theme, toggleTheme, language, toggleLanguage } = useUIStore();
-  const { unreadCount, isConnected } = useNotificationStore();
+  const { unreadCount, isConnected, requestNotificationPermission } = useNotificationStore();
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && searchQuery.trim()) {
+      const q = encodeURIComponent(searchQuery.trim());
+      router.push(`/tasks?search=${q}`);
+      setSearchQuery("");
+    }
+  };
 
   const notifRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
@@ -68,6 +76,7 @@ export default function TopBar() {
           placeholder={isAr ? "بحث..." : "Search anything..."}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={handleSearch}
           style={{ height: "36px" }}
         />
       </div>
@@ -110,7 +119,7 @@ export default function TopBar() {
         <button
           id="notif-bell"
           className="btn btn-ghost btn-sm"
-          onClick={() => setShowNotifications(!showNotifications)}
+          onClick={() => { setShowNotifications(!showNotifications); requestNotificationPermission(); }}
           style={{ position: "relative" }}
         >
           <Bell size={18} />

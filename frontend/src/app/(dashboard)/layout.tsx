@@ -8,6 +8,7 @@ import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
 import { useUIStore } from "@/store/useUIStore";
 import Cookies from "js-cookie";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 export default function DashboardLayout({
   children,
@@ -28,10 +29,6 @@ export default function DashboardLayout({
     if (user && accessToken) {
       connectWebSocket(user.id, accessToken);
     }
-    // Request notification permission
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
   }, [isAuthenticated, user, accessToken]);
 
   if (!isAuthenticated) return null;
@@ -42,7 +39,9 @@ export default function DashboardLayout({
       <div className="app-main">
         <TopBar />
         <main className="app-content animate-fade-in">
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </main>
       </div>
     </div>

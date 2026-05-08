@@ -107,6 +107,32 @@ class Task(models.Model):
         "sales.Job", on_delete=models.SET_NULL, null=True, blank=True, related_name="tasks"
     )
     is_archived = models.BooleanField(default=False)
+
+    # Custom field values: {"field_uuid": value, ...}
+    custom_field_values = models.JSONField(default=dict, blank=True)
+
+    # Sprint assignment
+    sprint = models.ForeignKey(
+        "Sprint", on_delete=models.SET_NULL, null=True, blank=True, related_name="tasks"
+    )
+    story_points = models.PositiveIntegerField(default=0, help_text="Story points for sprint planning")
+
+    # Recurring task settings
+    RECURRENCE_CHOICES = [
+        ("none", "No Recurrence"),
+        ("daily", "Daily"),
+        ("weekly", "Weekly"),
+        ("monthly", "Monthly"),
+        ("custom", "Custom (every N days)"),
+    ]
+    recurrence_rule = models.CharField(max_length=20, choices=RECURRENCE_CHOICES, default="none")
+    recurrence_interval = models.PositiveIntegerField(default=1, help_text="Every N days (for custom)")
+    recurrence_end_date = models.DateField(null=True, blank=True)
+    is_recurring_template = models.BooleanField(default=False)
+    recurring_parent = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, related_name="recurrences"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -190,6 +216,61 @@ class BoardAutomation(models.Model):
     
     class Meta:
         ordering = ["-created_at"]
+
+class Sprint(models.Model):
+    """Sprint for agile project management."""
+    STATUS_CHOICES = [
+        ("planning", "Planning"),
+        ("active", "Active"),
+        ("completed", "Completed"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="sprints")
+    name = models.CharField(max_length=200)
+    goal = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="planning")
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    velocity = models.PositiveIntegerField(default=0, help_text="Story points completed")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.board.name} - {self.name}"
+
+
+class BoardCustomField(models.Model):
+    """Defines custom fields available on tasks for a specific board."""
+    FIELD_TYPES = [
+        ("text", "Text"),
+        ("number", "Number"),
+        ("date", "Date"),
+        ("select", "Select (dropdown)"),
+        ("checkbox", "Checkbox"),
+        ("url", "URL"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="custom_fields")
+    name = models.CharField(max_length=100)
+    field_type = models.CharField(max_length=20, choices=FIELD_TYPES, default="text")
+    options = models.JSONField(default=list, blank=True, help_text="Options for select fields")
+    position = models.PositiveIntegerField(default=0)
+    is_required = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["position"]
+
+    def __str__(self):
+        return f"{self.board.name} → {self.name}"
+
 
 class TaskActivity(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime
 
+from django.conf import settings as django_settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -13,9 +14,10 @@ from rest_framework import status
 from apps.accounts.permissions import IsAdminOrManager
 
 
-BACKUP_ROOT = Path("D:/saas/erp-backups")
-PROJECT_ROOT = Path("D:/saas/erp")
-BACKEND_DIR = PROJECT_ROOT / "backend"
+_default_backup_root = str(django_settings.BASE_DIR.parent / "erp-backups")
+BACKUP_ROOT = Path(os.environ.get("BACKUP_DIR", _default_backup_root))
+BACKEND_DIR = django_settings.BASE_DIR
+PROJECT_ROOT = BACKEND_DIR.parent
 
 
 def _get_backup_list():

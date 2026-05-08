@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUIStore } from "@/store/useUIStore";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useNotificationStore } from "@/store/useNotificationStore";
 import {
   LayoutDashboard, Columns, Users, ShoppingBag, Palette,
   Package, BarChart3, Settings, ChevronLeft,
@@ -26,7 +27,7 @@ const NAV_SECTIONS: { title: string; titleAr: string; items: NavItem[] }[] = [
     items: [
       { label: "Dashboard", labelAr: "لوحة التحكم", href: "/", icon: <LayoutDashboard size={18} /> },
       { label: "My Workspace", labelAr: "تاسكاتي", href: "/my-workspace", icon: <Columns size={18} color="#8b5cf6" /> },
-      { label: "Tasks & Boards", labelAr: "المهام واللوحات", href: "/tasks", icon: <Columns size={18} /> },
+      { label: "Tasks & Boards", labelAr: "المهام واللوحات", href: "/tasks", icon: <Columns size={18} />, badge: 0 },
     ],
   },
   {
@@ -67,6 +68,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar, language } = useUIStore();
   const { user } = useAuthStore();
+  const { unreadCount } = useNotificationStore();
   const isAr = language === "ar";
 
   const isActive = (href: string) => {
@@ -129,8 +131,8 @@ export default function Sidebar() {
                   {!sidebarCollapsed && (
                     <span>{isAr ? item.labelAr : item.label}</span>
                   )}
-                  {!sidebarCollapsed && item.badge ? (
-                    <span className="nav-badge">{item.badge}</span>
+                  {!sidebarCollapsed && item.href === "/tasks" && unreadCount > 0 ? (
+                    <span className="nav-badge">{unreadCount > 99 ? "99+" : unreadCount}</span>
                   ) : null}
                 </Link>
               ))}

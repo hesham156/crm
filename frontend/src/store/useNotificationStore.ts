@@ -16,6 +16,10 @@ interface NotificationState {
   unreadCount: number;
   isConnected: boolean;
   ws: WebSocket | null;
+  _retryTimeout: ReturnType<typeof setTimeout> | null;
+  _retryDelay: number;
+  _userId: string | null;
+  _token: string | null;
   setNotifications: (notifications: Notification[]) => void;
   setUnreadCount: (count: number) => void;
   addNotification: (notification: Notification) => void;
@@ -23,6 +27,7 @@ interface NotificationState {
   markAllRead: () => void;
   connectWebSocket: (userId: string, token: string) => void;
   disconnectWebSocket: () => void;
+  requestNotificationPermission: () => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -30,6 +35,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   unreadCount: 0,
   isConnected: false,
   ws: null,
+  _retryTimeout: null,
+  _retryDelay: 1000,
+  _userId: null,
+  _token: null,
 
   setNotifications: (notifications) =>
     set({ notifications, unreadCount: notifications.filter((n) => !n.is_read).length }),
@@ -37,10 +46,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   setUnreadCount: (count) => set({ unreadCount: count }),
 
   addNotification: (notification) =>
-    set((state) => ({
-      notifications: [notification, ...state.notifications],
-      unreadCount: state.unreadCount + 1,
-    })),
+    set((state) => {
+      // Deduplicate — ignore if same id already present
+      if (state.notifications.some((n) => n.id === notification.id)) return state;
+      return {
+        notifications: [notification, ...state.notifications],
+        unreadCount: state.unreadCount + 1,
+      };
+    }),
 
   markRead: (id) =>
     set((state) => ({
@@ -56,17 +69,28 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       unreadCount: 0,
     })),
 
-  connectWebSocket: (userId, token) => {
-    const { ws } = get();
-    if (ws) ws.close();
+  requestNotificationPermission: () => {
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  },
 
-    const WS_BASE = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
-    const socket = new WebSocket(
-      `${WS_BASE}/ws/notifications/${userId}/?token=${token}`
-    );
+  connectWebSocket: (userId, token) => {
+    const state = get();
+
+    // Cancel any pending reconnect
+    if (state._retryTimeout) clearTimeout(state._retryTimeout);
+
+    // Close existing connection
+    if (state.ws) state.ws.close();
+
+    set({ _userId: userId, _token: token });
+
+    const WS_BASE = (process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000").replace(/\/$/, "");
+    const socket = new WebSocket(`${WS_BASE}/ws/notifications/${userId}/?token=${token}`);
 
     socket.onopen = () => {
-      set({ isConnected: true, ws: socket });
+      set({ isConnected: true, ws: socket, _retryDelay: 1000 });
     };
 
     socket.onmessage = (event) => {
@@ -75,8 +99,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         set({ unreadCount: data.unread_count });
       } else if (data.type === "notification") {
         get().addNotification(data.notification);
-        // Browser notification
-        if (Notification.permission === "granted") {
+        if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
           new Notification(data.notification.title, {
             body: data.notification.body,
             icon: "/favicon.ico",
@@ -85,15 +108,25 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       }
     };
 
-    socket.onclose = () => set({ isConnected: false, ws: null });
+    socket.onclose = () => {
+      set({ isConnected: false, ws: null });
+      const { _userId, _token, _retryDelay } = get();
+      if (_userId && _token) {
+        const nextDelay = Math.min(_retryDelay * 2, 30000); // cap at 30s
+        const timeout = setTimeout(() => {
+          get().connectWebSocket(_userId, _token);
+        }, _retryDelay);
+        set({ _retryTimeout: timeout, _retryDelay: nextDelay });
+      }
+    };
+
     socket.onerror = () => set({ isConnected: false });
   },
 
   disconnectWebSocket: () => {
-    const { ws } = get();
-    if (ws) {
-      ws.close();
-      set({ ws: null, isConnected: false });
-    }
+    const { ws, _retryTimeout } = get();
+    if (_retryTimeout) clearTimeout(_retryTimeout);
+    if (ws) ws.close();
+    set({ ws: null, isConnected: false, _userId: null, _token: null, _retryTimeout: null, _retryDelay: 1000 });
   },
 }));

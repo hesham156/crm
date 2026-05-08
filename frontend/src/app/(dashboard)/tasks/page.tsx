@@ -6,7 +6,7 @@ import { tasksApi } from "@/lib/api";
 import { useUIStore } from "@/store/useUIStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import Link from "next/link";
-import { Plus, Columns, Search, Users, Lock, Unlock, MonitorPlay } from "lucide-react";
+import { Plus, Columns, Search, Users, Lock, Unlock, MonitorPlay, Archive, BarChart2, FileBarChart, Zap } from "lucide-react";
 import toast from "react-hot-toast";
 import { useForm } from "react-hook-form";
 import { formatDistanceToNow } from "date-fns";
@@ -21,6 +21,44 @@ const BOARD_ICONS = [
   "truck", "star", "zap", "target",
 ];
 
+const BOARD_TEMPLATES = [
+  {
+    id: "blank",
+    name: "Blank Board",
+    icon: "📋",
+    description: "Start from scratch",
+    columns: [],
+  },
+  {
+    id: "software",
+    name: "Software Project",
+    icon: "💻",
+    description: "Backlog → In Dev → Review → Testing → Done",
+    columns: ["Backlog", "In Development", "Code Review", "Testing", "Done"],
+  },
+  {
+    id: "marketing",
+    name: "Marketing Campaign",
+    icon: "📣",
+    description: "Ideas → Planning → Creating → Reviewing → Published",
+    columns: ["Ideas", "Planning", "Creating", "Reviewing", "Published"],
+  },
+  {
+    id: "printing",
+    name: "Printing Workflow",
+    icon: "🖨️",
+    description: "Orders → Design → Approval → Production → Delivery",
+    columns: ["New Orders", "Design", "Client Approval", "Production", "Delivery"],
+  },
+  {
+    id: "crm",
+    name: "CRM Pipeline",
+    icon: "🤝",
+    description: "Lead → Qualified → Proposal → Negotiation → Won/Lost",
+    columns: ["Lead", "Qualified", "Proposal Sent", "Negotiation", "Won"],
+  },
+];
+
 export default function TasksPage() {
   const { language } = useUIStore();
   const { user } = useAuthStore();
@@ -29,6 +67,7 @@ export default function TasksPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedColor, setSelectedColor] = useState(BOARD_COLORS[0]);
+  const [selectedTemplate, setSelectedTemplate] = useState("blank");
   const isAdminOrManager = user?.role === "admin" || user?.role === "manager";
 
   const { data: boards = [], isLoading } = useQuery({
@@ -44,13 +83,22 @@ export default function TasksPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (data: unknown) =>
-      tasksApi.createBoard({ ...data as object, color: selectedColor }),
+    mutationFn: async (data: unknown) => {
+      const { data: board } = await tasksApi.createBoard({ ...data as object, color: selectedColor });
+      const tpl = BOARD_TEMPLATES.find((t) => t.id === selectedTemplate);
+      if (tpl && tpl.columns.length > 0) {
+        for (let i = 0; i < tpl.columns.length; i++) {
+          await tasksApi.createColumn(board.id, { name: tpl.columns[i], color: "gray" });
+        }
+      }
+      return board;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["boards"] });
       toast.success("Board created!");
       setShowCreate(false);
       reset();
+      setSelectedTemplate("blank");
     },
     onError: () => toast.error("Failed to create board"),
   });
@@ -79,6 +127,38 @@ export default function TasksPage() {
               style={{ height: "36px" }}
             />
           </div>
+          <Link
+            href="/tasks/reports"
+            className="btn btn-secondary"
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            <FileBarChart size={16} style={{ color: "#f59e0b" }} />
+            {isAr ? "التقارير" : "Reports"}
+          </Link>
+          <Link
+            href="/tasks/workload"
+            className="btn btn-secondary"
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            <BarChart2 size={16} style={{ color: "var(--brand-secondary)" }} />
+            {isAr ? "عبء العمل" : "Workload"}
+          </Link>
+          <Link
+            href="/tasks/sprints"
+            className="btn btn-secondary"
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            <Zap size={16} style={{ color: "#f59e0b" }} />
+            {isAr ? "السبرينت" : "Sprints"}
+          </Link>
+          <Link
+            href="/tasks/archived"
+            className="btn btn-secondary"
+            style={{ display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            <Archive size={16} style={{ color: "var(--text-muted)" }} />
+            {isAr ? "المؤرشفة" : "Archived"}
+          </Link>
           {isAdminOrManager && (
             <Link
               href="/tasks/admin"
@@ -194,6 +274,36 @@ export default function TasksPage() {
             </div>
             <form onSubmit={handleSubmit((d) => createMutation.mutate(d))}>
               <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+                {/* Template selector */}
+                <div className="form-group">
+                  <label className="form-label">Template</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "var(--space-2)" }}>
+                    {BOARD_TEMPLATES.map((tpl) => (
+                      <button
+                        key={tpl.id}
+                        type="button"
+                        onClick={() => setSelectedTemplate(tpl.id)}
+                        style={{
+                          padding: "var(--space-3)",
+                          borderRadius: "var(--radius-md)",
+                          border: "2px solid",
+                          borderColor: selectedTemplate === tpl.id ? "var(--brand-primary)" : "var(--border-subtle)",
+                          background: selectedTemplate === tpl.id ? "var(--brand-primary)10" : "var(--bg-elevated)",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "4px",
+                        }}
+                      >
+                        <span style={{ fontSize: "1.2rem" }}>{tpl.icon}</span>
+                        <span style={{ fontSize: "0.8rem", fontWeight: 700 }}>{tpl.name}</span>
+                        <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", lineHeight: 1.3 }}>{tpl.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="form-group">
                   <label className="form-label">{isAr ? "اسم اللوحة" : "Board Name"} *</label>
                   <input

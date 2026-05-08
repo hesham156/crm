@@ -1,4 +1,4 @@
-import json
+import re
 import threading
 from apps.audit.models import AuditLog
 
@@ -44,11 +44,12 @@ class AuditLogMiddleware:
                 model  = self._path_to_model(path)
 
                 if model:  # Only log known models
+                    object_id = self._extract_object_id(path)
                     AuditLog.objects.create(
                         user       = request.user,
                         action     = action,
                         model      = model,
-                        object_id  = "",
+                        object_id  = object_id,
                         object_repr= path,
                         changes    = {},
                         ip_address = _audit_context.context.get("ip"),
@@ -76,6 +77,17 @@ class AuditLogMiddleware:
             "PATCH":  "update",
             "DELETE": "delete",
         }.get(method, "update")
+
+    @staticmethod
+    def _extract_object_id(path: str) -> str:
+        """Extract UUID or numeric ID from URL path, e.g. /api/tasks/tasks/123e4567.../"""
+        match = re.search(r"/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/", path)
+        if match:
+            return match.group(1)
+        match = re.search(r"/(\d+)/", path)
+        if match:
+            return match.group(1)
+        return ""
 
     @staticmethod
     def _path_to_model(path):

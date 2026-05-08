@@ -36,7 +36,7 @@ apiClient.interceptors.response.use(
       try {
         const refresh = Cookies.get("refresh_token");
         if (!refresh) throw new Error("No refresh token");
-        const { data } = await axios.post(`${API_BASE}/api/auth/refresh/`, {
+        const { data } = await apiClient.post("/auth/refresh/", {
           refresh,
         });
         Cookies.set("access_token", data.access, { expires: 1 });
@@ -100,6 +100,37 @@ export const tasksApi = {
   comments: (taskId: string) => apiClient.get(`/tasks/tasks/${taskId}/comments/`),
   addComment: (taskId: string, body: string, mentions?: string[]) =>
     apiClient.post(`/tasks/tasks/${taskId}/comments/`, { body, mention_ids: mentions }),
+  updateComment: (commentId: string, body: string) =>
+    apiClient.patch(`/tasks/comments/${commentId}/`, { body }),
+  deleteComment: (commentId: string) =>
+    apiClient.delete(`/tasks/comments/${commentId}/`),
+
+  archivedTasks: (params?: Record<string, unknown>) =>
+    apiClient.get("/tasks/tasks/archived/", { params }),
+  bulkAction: (taskIds: string[], action: string, payload?: Record<string, unknown>) =>
+    apiClient.post("/tasks/tasks/bulk-action/", { task_ids: taskIds, action, payload }),
+  workload: (boardId?: string) =>
+    apiClient.get("/tasks/tasks/workload/", { params: boardId ? { board: boardId } : {} }),
+  spawnRecurrence: (taskId: string) =>
+    apiClient.post(`/tasks/tasks/${taskId}/spawn-recurrence/`),
+
+  customFields: (boardId: string) =>
+    apiClient.get(`/tasks/boards/${boardId}/custom-fields/`),
+  createCustomField: (boardId: string, data: unknown) =>
+    apiClient.post(`/tasks/boards/${boardId}/custom-fields/`, data),
+  updateCustomField: (fieldId: string, data: unknown) =>
+    apiClient.patch(`/tasks/custom-fields/${fieldId}/`, data),
+  deleteCustomField: (fieldId: string) =>
+    apiClient.delete(`/tasks/custom-fields/${fieldId}/`),
+
+  sprints: (boardId: string) =>
+    apiClient.get(`/tasks/boards/${boardId}/sprints/`),
+  createSprint: (boardId: string, data: unknown) =>
+    apiClient.post(`/tasks/boards/${boardId}/sprints/`, data),
+  updateSprint: (sprintId: string, data: unknown) =>
+    apiClient.patch(`/tasks/sprints/${sprintId}/`, data),
+  deleteSprint: (sprintId: string) =>
+    apiClient.delete(`/tasks/sprints/${sprintId}/`),
 
   logTime: (taskId: string, data: { duration: number; note?: string }) =>
     apiClient.post(`/tasks/tasks/${taskId}/time-log/`, data),

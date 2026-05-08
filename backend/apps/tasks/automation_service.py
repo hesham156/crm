@@ -1,13 +1,40 @@
 import logging
 from django.utils import timezone
+from django.db.models import Sum
 from .models import BoardAutomation, TaskActivity, Column, Task, TimeLog
 
 logger = logging.getLogger("apps")
 
+# Thread-local store for loop detection
+_automation_stack = {}
+
 def run_task_automations(task, trigger_type, new_value, user=None):
     """
-    Centralized automation runner for ProSticker ERP.
+    Centralized automation runner with circular loop protection.
+    Uses a per-task execution stack to prevent the same trigger from firing recursively.
     """
+    # Loop protection: track (task_id, trigger_type, new_value) combos in current call stack
+    import threading
+    thread_id = threading.current_thread().ident
+    stack_key = (thread_id,)
+    if stack_key not in _automation_stack:
+        _automation_stack[stack_key] = set()
+
+    execution_key = (str(task.id), trigger_type, str(new_value))
+    if execution_key in _automation_stack[stack_key]:
+        logger.warning(f"Automation loop detected for task {task.id} trigger={trigger_type} value={new_value}. Skipping.")
+        return
+
+    _automation_stack[stack_key].add(execution_key)
+    try:
+        _run_automations_inner(task, trigger_type, new_value, user)
+    finally:
+        _automation_stack[stack_key].discard(execution_key)
+        if not _automation_stack[stack_key]:
+            del _automation_stack[stack_key]
+
+
+def _run_automations_inner(task, trigger_type, new_value, user=None):
     automations = BoardAutomation.objects.filter(
         board=task.board,
         trigger_type=trigger_type,
@@ -65,7 +92,7 @@ def run_task_automations(task, trigger_type, new_value, user=None):
                             except Exception as e:
                                 logger.error(f"Failed to send assignment notification from automation: {e}", exc_info=True)
                     except Exception as e:
-                        pass # Silently fail automation if ids are invalid
+                        logger.error(f"move_to_board automation failed for task {task.id}: {e}", exc_info=True)
 
                 elif atype == "auto_assign":
                     task.assigned_to.add(avalue)
@@ -203,8 +230,8 @@ def run_task_automations(task, trigger_type, new_value, user=None):
                                 duration=minutes,
                                 note="Tracked via Automation"
                             )
-                            task.time_logged = sum(tl.duration for tl in task.time_logs.all())
-                            
+                            task.time_logged = task.time_logs.aggregate(total=Sum("duration"))["total"] or 0
+
                         task.is_timer_running = False
                         task.timer_started_at = None
                         task.save(update_fields=["is_timer_running", "timer_started_at", "time_logged"])

@@ -1,10 +1,10 @@
 "use client";
 
+import { useState, useRef } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { MessageSquare, Paperclip, Clock, AlertCircle, Calendar } from "lucide-react";
+import { MessageSquare, Clock, AlertCircle, Calendar, Flag } from "lucide-react";
 import { format, isPast, isToday } from "date-fns";
-import clsx from "clsx";
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: "var(--priority-low)",
@@ -12,6 +12,8 @@ const PRIORITY_COLORS: Record<string, string> = {
   high: "var(--priority-high)",
   urgent: "var(--priority-urgent)",
 };
+
+const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 
 interface Task {
   id: string;
@@ -25,15 +27,22 @@ interface Task {
   time_logged: number;
   progress?: number;
   is_timer_running?: boolean;
+  is_archived?: boolean;
 }
 
 export default function TaskCard({
-  task, onClick, isDragging = false,
+  task, onClick, isDragging = false, onQuickUpdate,
 }: {
   task: Task;
   onClick: () => void;
   isDragging?: boolean;
+  onQuickUpdate?: (id: string, data: { title?: string; priority?: string }) => void;
 }) {
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [showPriorityPicker, setShowPriorityPicker] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const {
     attributes, listeners, setNodeRef,
     transform, transition, isDragging: isSortableDragging,
@@ -48,29 +57,131 @@ export default function TaskCard({
   const isOverdue = task.due_date && isPast(new Date(task.due_date)) && !isToday(new Date(task.due_date));
   const isDueToday = task.due_date && isToday(new Date(task.due_date));
 
+  const handleTitleDoubleClick = (e: React.MouseEvent) => {
+    if (!onQuickUpdate) return;
+    e.stopPropagation();
+    setIsEditingTitle(true);
+    setEditTitle(task.title);
+    setTimeout(() => inputRef.current?.select(), 10);
+  };
+
+  const handleTitleSave = () => {
+    if (editTitle.trim() && editTitle !== task.title && onQuickUpdate) {
+      onQuickUpdate(task.id, { title: editTitle.trim() });
+    }
+    setIsEditingTitle(false);
+  };
+
+  const handlePriorityClick = (e: React.MouseEvent) => {
+    if (!onQuickUpdate) return;
+    e.stopPropagation();
+    setShowPriorityPicker((v) => !v);
+  };
+
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      style={{ ...style, position: "relative" }}
       {...attributes}
-      {...listeners}
+      {...(isEditingTitle || showPriorityPicker ? {} : listeners)}
       className={`task-card ${isDragging ? "dragging" : ""}`}
-      onClick={onClick}
+      onClick={isEditingTitle || showPriorityPicker ? undefined : onClick}
     >
-      {/* Priority indicator */}
-      <div style={{
-        width: "3px",
-        height: "100%",
-        background: PRIORITY_COLORS[task.priority] || "transparent",
-        position: "absolute",
-        left: 0,
-        top: 0,
-        borderRadius: "var(--radius-md) 0 0 var(--radius-md)",
-      }} />
+      {/* Priority indicator - clickable for quick change */}
+      <div
+        style={{
+          width: "6px",
+          height: "100%",
+          background: PRIORITY_COLORS[task.priority] || "transparent",
+          position: "absolute",
+          left: 0,
+          top: 0,
+          borderRadius: "var(--radius-md) 0 0 var(--radius-md)",
+          cursor: onQuickUpdate ? "pointer" : "default",
+        }}
+        onClick={handlePriorityClick}
+        data-tooltip={`Priority: ${task.priority}. Click to change.`}
+      />
 
-      {/* Title */}
-      <div className="task-card-title" style={{ paddingLeft: "var(--space-2)" }}>
-        {task.title}
+      {/* Priority picker dropdown */}
+      {showPriorityPicker && (
+        <div
+          style={{
+            position: "absolute",
+            top: "0",
+            left: "14px",
+            zIndex: 100,
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border-default)",
+            borderRadius: "var(--radius-md)",
+            boxShadow: "var(--shadow-lg)",
+            padding: "4px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "2px",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {PRIORITIES.map((p) => (
+            <button
+              key={p}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "4px 10px",
+                borderRadius: "var(--radius-sm)",
+                border: "none",
+                background: task.priority === p ? `${PRIORITY_COLORS[p]}20` : "transparent",
+                cursor: "pointer",
+                fontSize: "0.8rem",
+                color: PRIORITY_COLORS[p],
+                fontWeight: task.priority === p ? 700 : 400,
+              }}
+              onClick={() => {
+                onQuickUpdate?.(task.id, { priority: p });
+                setShowPriorityPicker(false);
+              }}
+            >
+              <Flag size={11} />
+              {p.charAt(0).toUpperCase() + p.slice(1)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Title - double-click to edit */}
+      <div className="task-card-title" style={{ paddingLeft: "var(--space-3)" }}>
+        {isEditingTitle ? (
+          <input
+            ref={inputRef}
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onBlur={handleTitleSave}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleTitleSave();
+              if (e.key === "Escape") { setIsEditingTitle(false); setEditTitle(task.title); }
+            }}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              border: "1px solid var(--brand-primary)",
+              borderRadius: "var(--radius-sm)",
+              padding: "2px 4px",
+              fontSize: "0.875rem",
+              background: "var(--bg-elevated)",
+              color: "var(--text-primary)",
+            }}
+            autoFocus
+          />
+        ) : (
+          <span
+            onDoubleClick={handleTitleDoubleClick}
+            title={onQuickUpdate ? "Double-click to edit" : undefined}
+          >
+            {task.title}
+          </span>
+        )}
       </div>
 
       {/* Tags */}

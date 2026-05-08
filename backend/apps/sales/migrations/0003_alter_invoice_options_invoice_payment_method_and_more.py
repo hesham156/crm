@@ -32,11 +32,12 @@ class Migration(migrations.Migration):
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='line_items', to='sales.quotation'),
         ),
         migrations.RunSQL(
-            'ALTER TABLE "sales_quotationitem" ALTER COLUMN "id" DROP IDENTITY IF EXISTS;',
+            # PostgreSQL only - skip on SQLite
+            sql="SELECT 1 WHERE 1=0",  # no-op replaced below
             reverse_sql=migrations.RunSQL.noop
         ),
         migrations.RunSQL(
-            'ALTER TABLE "sales_quotationitem" ALTER COLUMN "id" SET DATA TYPE uuid USING gen_random_uuid();',
+            sql="SELECT 1 WHERE 1=0",  # no-op (PostgreSQL-only ALTER was here)
             reverse_sql=migrations.RunSQL.noop
         ),
         migrations.AlterField(

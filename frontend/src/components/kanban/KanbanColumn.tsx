@@ -23,13 +23,14 @@ interface Column { id: string; name: string; color: string; task_count: number; 
 interface Task { id: string; title: string; priority: string; due_date: string | null; assigned_to: unknown[]; tags: unknown[]; comments_count: number; subtasks_count: number; time_logged: number; }
 
 export default function KanbanColumn({
-  column, tasks, onTaskClick, onAddTask, boardId,
+  column, tasks, onTaskClick, onAddTask, boardId, onQuickUpdate,
 }: {
   column: Column;
   tasks: any[];
   onTaskClick: (task: any) => void;
   onAddTask: () => void;
   boardId: string;
+  onQuickUpdate?: (id: string, data: { title?: string; priority?: string }) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
   const dotColor = COLOR_MAP[column.color] || "var(--col-gray)";
@@ -165,6 +166,7 @@ export default function KanbanColumn({
               key={task.id}
               task={task}
               onClick={() => onTaskClick(task)}
+              onQuickUpdate={onQuickUpdate}
             />
           ))}
         </SortableContext>

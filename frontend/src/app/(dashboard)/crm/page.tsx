@@ -7,6 +7,7 @@ import { crmApi } from "@/lib/api";
 import { useUIStore } from "@/store/useUIStore";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import { Pagination } from "@/components/ui/Pagination";
 
 const STAGE_COLORS: Record<string, string> = {
   new: "var(--text-muted)",
@@ -23,21 +24,25 @@ export default function CRMPage() {
   const isAr = language === "ar";
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [page, setPage] = useState(1);
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
 
-  const { data: customers = [], isLoading } = useQuery({
-    queryKey: ["customers"],
+  const { data: customersData, isLoading } = useQuery({
+    queryKey: ["customers", page],
     queryFn: async () => {
-      const { data } = await crmApi.customers();
-      return data.results || data;
+      const { data } = await crmApi.customers({ page });
+      return data;
     },
   });
+
+  const customers = customersData?.results || (Array.isArray(customersData) ? customersData : []);
+  const totalCount = customersData?.count || customers.length;
 
   const createMutation = useMutation({
     mutationFn: (data: any) => crmApi.createCustomer(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries({ queryKey: ["customers", page] });
       toast.success(isAr ? "تمت إضافة العميل!" : "Customer added!");
       setIsModalOpen(false);
       reset();
@@ -50,7 +55,7 @@ export default function CRMPage() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => crmApi.updateCustomer(id, data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries({ queryKey: ["customers", page] });
       toast.success(isAr ? "تم تحديث العميل!" : "Customer updated!");
       setIsModalOpen(false);
       setSelectedCustomer(null);
@@ -107,7 +112,7 @@ export default function CRMPage() {
           </button>
         </div>
       ) : (
-        <div className="table-wrapper">
+        <div className="table-wrapper" style={{ borderRadius: "var(--radius-lg)", overflow: "hidden" }}>
           <table className="table">
             <thead>
               <tr>
@@ -134,6 +139,7 @@ export default function CRMPage() {
               ))}
             </tbody>
           </table>
+          <Pagination page={page} totalCount={totalCount} onChange={setPage} />
         </div>
       )}
 

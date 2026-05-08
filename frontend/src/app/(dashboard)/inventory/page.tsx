@@ -6,6 +6,7 @@ import { useUIStore } from "@/store/useUIStore";
 import { useState } from "react";
 import { PackageOpen, AlertTriangle, Plus, ArrowDownRight, ArrowUpRight, Search, X, Check } from "lucide-react";
 import toast from "react-hot-toast";
+import { Pagination } from "@/components/ui/Pagination";
 
 export default function InventoryPage() {
   const { language } = useUIStore();
@@ -17,14 +18,18 @@ export default function InventoryPage() {
   const [showTxModal, setShowTxModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [txType, setTxType] = useState<"addition" | "deduction">("addition");
+  const [page, setPage] = useState(1);
 
-  const { data: items, isLoading: itemsLoading } = useQuery({
-    queryKey: ["inventory_items"],
+  const { data: itemsData, isLoading: itemsLoading } = useQuery({
+    queryKey: ["inventory_items", page],
     queryFn: async () => {
-      const { data } = await inventoryApi.items();
-      return data.results || data;
+      const { data } = await inventoryApi.items({ page });
+      return data;
     },
   });
+
+  const items = itemsData?.results || (Array.isArray(itemsData) ? itemsData : []);
+  const totalCount = itemsData?.count || items.length;
 
   const { data: lowStockItems } = useQuery({
     queryKey: ["inventory_low_stock"],
@@ -45,7 +50,7 @@ export default function InventoryPage() {
   const { mutate: createItem, isPending: isCreatingItem } = useMutation({
     mutationFn: async (data: any) => inventoryApi.createItem(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["inventory_items"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory_items", page] });
       toast.success(isAr ? "تم حفظ العنصر" : "Item saved");
       setShowItemModal(false);
     },
@@ -55,7 +60,7 @@ export default function InventoryPage() {
   const { mutate: createTx, isPending: isCreatingTx } = useMutation({
     mutationFn: async (data: any) => inventoryApi.createTransaction(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["inventory_items"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory_items", page] });
       queryClient.invalidateQueries({ queryKey: ["inventory_low_stock"] });
       toast.success(isAr ? "تم تسجيل الحركة" : "Transaction recorded");
       setShowTxModal(false);
@@ -196,6 +201,9 @@ export default function InventoryPage() {
               </div>
             ))}
           </div>
+        )}
+        {activeTab === "items" && (
+          <Pagination page={page} totalCount={totalCount} onChange={(p) => { setPage(p); }} />
         )}
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   DndContext, DragOverlay, closestCorners, PointerSensor,
@@ -12,7 +12,7 @@ import { tasksApi } from "@/lib/api";
 import KanbanColumn from "./KanbanColumn";
 import TaskCard from "./TaskCard";
 import TaskDetailModal from "./TaskDetailModal";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, Filter, X, ChevronDown } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface Task {
@@ -52,6 +52,16 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [newTaskColumn, setNewTaskColumn] = useState<string | null>(null);
+
+  // Filters
+  const [filterPriority, setFilterPriority] = useState<string>("");
+  const [filterAssignee, setFilterAssignee] = useState<string>("");
+  const [filterSearch, setFilterSearch] = useState<string>("");
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Bulk operations
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [bulkMode, setBulkMode] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -93,6 +103,45 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks", boardId] }),
     onError: () => toast.error("Failed to move task"),
   });
+
+  const quickUpdateMutation = useMutation({
+    mutationFn: ({ taskId, data }: { taskId: string; data: { title?: string; priority?: string } }) =>
+      tasksApi.updateTask(taskId, data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["tasks", boardId] }),
+    onError: () => toast.error("Failed to update task"),
+  });
+
+  const bulkActionMutation = useMutation({
+    mutationFn: ({ action, payload }: { action: string; payload?: Record<string, unknown> }) =>
+      tasksApi.bulkAction(Array.from(selectedTaskIds), action, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["tasks", boardId] });
+      setSelectedTaskIds(new Set());
+      setBulkMode(false);
+      toast.success("Bulk action applied");
+    },
+    onError: () => toast.error("Bulk action failed"),
+  });
+
+  const handleQuickUpdate = (taskId: string, data: { title?: string; priority?: string }) => {
+    // Optimistic update
+    qc.setQueryData(["tasks", boardId], (old: Task[] = []) =>
+      old.map((t) => t.id === taskId ? { ...t, ...data } : t)
+    );
+    quickUpdateMutation.mutate({ taskId, data });
+  };
+
+  // Derived filtered tasks
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      if (filterSearch && !t.title.toLowerCase().includes(filterSearch.toLowerCase())) return false;
+      if (filterPriority && t.priority !== filterPriority) return false;
+      if (filterAssignee && !t.assigned_to.some((a: any) => a.id === filterAssignee)) return false;
+      return true;
+    });
+  }, [tasks, filterSearch, filterPriority, filterAssignee]);
+
+  const hasActiveFilters = filterSearch || filterPriority || filterAssignee;
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
@@ -149,11 +198,119 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
     );
   }
 
-    const columns: Column[] = board?.columns || [];
-
+  const columns: Column[] = board?.columns || [];
+  const allAssignees = Array.from(
+    new Map(tasks.flatMap((t) => t.assigned_to.map((a: any) => [a.id, a])).filter(Boolean)).values()
+  ) as { id: string; full_name_en: string }[];
 
   return (
     <>
+      {/* Filter & Bulk Bar */}
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-3)", flexShrink: 0 }}>
+        <button
+          className={`btn btn-sm ${hasActiveFilters ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setShowFilters((v) => !v)}
+          style={{ gap: "6px" }}
+        >
+          <Filter size={14} />
+          Filters
+          {hasActiveFilters && <span className="nav-badge" style={{ background: "white", color: "var(--brand-primary)" }}>!</span>}
+        </button>
+
+        {showFilters && (
+          <>
+            <input
+              className="form-input"
+              placeholder="Search tasks..."
+              value={filterSearch}
+              onChange={(e) => setFilterSearch(e.target.value)}
+              style={{ height: "32px", width: "180px", fontSize: "0.82rem" }}
+            />
+            <select
+              className="form-input form-select"
+              value={filterPriority}
+              onChange={(e) => setFilterPriority(e.target.value)}
+              style={{ height: "32px", fontSize: "0.82rem", width: "130px" }}
+            >
+              <option value="">All Priorities</option>
+              <option value="urgent">🔴 Urgent</option>
+              <option value="high">🟠 High</option>
+              <option value="normal">🟡 Normal</option>
+              <option value="low">⚪ Low</option>
+            </select>
+            <select
+              className="form-input form-select"
+              value={filterAssignee}
+              onChange={(e) => setFilterAssignee(e.target.value)}
+              style={{ height: "32px", fontSize: "0.82rem", width: "160px" }}
+            >
+              <option value="">All Assignees</option>
+              {allAssignees.map((u) => (
+                <option key={u.id} value={u.id}>{u.full_name_en}</option>
+              ))}
+            </select>
+            {hasActiveFilters && (
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => { setFilterSearch(""); setFilterPriority(""); setFilterAssignee(""); }}
+              >
+                <X size={14} /> Clear
+              </button>
+            )}
+          </>
+        )}
+
+        <div style={{ flex: 1 }} />
+
+        {/* Bulk Mode Toggle */}
+        <button
+          className={`btn btn-sm ${bulkMode ? "btn-primary" : "btn-ghost"}`}
+          onClick={() => { setBulkMode((v) => !v); setSelectedTaskIds(new Set()); }}
+        >
+          {bulkMode ? <><X size={14} /> Exit Select</> : "Select Tasks"}
+        </button>
+
+        {bulkMode && selectedTaskIds.size > 0 && (
+          <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+            <span style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>{selectedTaskIds.size} selected</span>
+            <button className="btn btn-sm btn-secondary" onClick={() => bulkActionMutation.mutate({ action: "archive" })}>
+              Archive
+            </button>
+            <select
+              className="form-input form-select"
+              style={{ height: "32px", fontSize: "0.82rem", width: "130px" }}
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  bulkActionMutation.mutate({ action: "set_priority", payload: { priority: e.target.value } });
+                  e.target.value = "";
+                }
+              }}
+            >
+              <option value="" disabled>Set Priority</option>
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="normal">Normal</option>
+              <option value="low">Low</option>
+            </select>
+            <select
+              className="form-input form-select"
+              style={{ height: "32px", fontSize: "0.82rem", width: "160px" }}
+              defaultValue=""
+              onChange={(e) => {
+                if (e.target.value) {
+                  bulkActionMutation.mutate({ action: "move_column", payload: { column_id: e.target.value } });
+                  e.target.value = "";
+                }
+              }}
+            >
+              <option value="" disabled>Move to Column</option>
+              {columns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        )}
+      </div>
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -166,7 +323,7 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
             strategy={horizontalListSortingStrategy}
           >
             {columns.map((column) => {
-              const columnTasks = tasks
+              const columnTasks = filteredTasks
                 .filter((t) => t.column === column.id && !t.parent)
                 .sort((a, b) => a.position - b.position);
 
@@ -175,9 +332,21 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
                   key={column.id}
                   column={column}
                   tasks={columnTasks}
-                  onTaskClick={openTask}
+                  onTaskClick={(task) => {
+                    if (bulkMode) {
+                      setSelectedTaskIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(task.id)) next.delete(task.id);
+                        else next.add(task.id);
+                        return next;
+                      });
+                    } else {
+                      openTask(task);
+                    }
+                  }}
                   onAddTask={() => openNewTask(column.id)}
                   boardId={boardId}
+                  onQuickUpdate={handleQuickUpdate}
                 />
               );
             })}

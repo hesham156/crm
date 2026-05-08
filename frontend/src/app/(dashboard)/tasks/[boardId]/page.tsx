@@ -5,8 +5,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import { tasksApi, usersApi } from "@/lib/api";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
+import BoardTableView from "@/components/kanban/BoardTableView";
 import AutomationsModal from "@/components/kanban/AutomationsModal";
-import { ArrowLeft, Users, Settings, MoreHorizontal, X, Check, Zap } from "lucide-react";
+import TaskDetailModal from "@/components/kanban/TaskDetailModal";
+import { ArrowLeft, Users, Settings, MoreHorizontal, X, Check, Zap, LayoutGrid, Table2, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 
@@ -16,11 +18,15 @@ export default function BoardPage() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [isAutomationsModalOpen, setIsAutomationsModalOpen] = useState(false);
-  
+  const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
+  const [tableSelectedTask, setTableSelectedTask] = useState<any>(null);
+
   // Settings State
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settingsName, setSettingsName] = useState("");
   const [settingsDescription, setSettingsDescription] = useState("");
+  const [newFieldName, setNewFieldName] = useState("");
+  const [newFieldType, setNewFieldType] = useState("text");
 
   const { data: board, isLoading } = useQuery({
     queryKey: ["board", boardId],
@@ -28,6 +34,15 @@ export default function BoardPage() {
       const { data } = await tasksApi.board(boardId);
       return data;
     },
+  });
+
+  const { data: allTasks = [] } = useQuery({
+    queryKey: ["tasks", boardId],
+    queryFn: async () => {
+      const { data } = await tasksApi.tasks({ board: boardId, is_archived: false });
+      return data.results || data;
+    },
+    enabled: viewMode === "table",
   });
 
   const { data: users = [] } = useQuery({
@@ -66,6 +81,26 @@ export default function BoardPage() {
       window.location.href = "/tasks";
     },
     onError: () => toast.error("Failed to delete board"),
+  });
+
+  const createCustomFieldMutation = useMutation({
+    mutationFn: (data: { name: string; field_type: string }) => tasksApi.createCustomField(boardId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["board", boardId] });
+      setNewFieldName("");
+      setNewFieldType("text");
+      toast.success("Custom field added");
+    },
+    onError: () => toast.error("Failed to add custom field"),
+  });
+
+  const deleteCustomFieldMutation = useMutation({
+    mutationFn: (fieldId: string) => tasksApi.deleteCustomField(fieldId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["board", boardId] });
+      toast.success("Custom field deleted");
+    },
+    onError: () => toast.error("Failed to delete custom field"),
   });
 
   const handleOpenInvite = () => {
@@ -134,9 +169,29 @@ export default function BoardPage() {
 
         {/* Members & View & Automate */}
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+          {/* View Toggle */}
+          <div style={{ display: "flex", border: "1px solid var(--border-default)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+            <button
+              className={`btn btn-sm ${viewMode === "kanban" ? "btn-primary" : "btn-ghost"}`}
+              style={{ borderRadius: 0, border: "none" }}
+              onClick={() => setViewMode("kanban")}
+              data-tooltip="Kanban View"
+            >
+              <LayoutGrid size={14} />
+            </button>
+            <button
+              className={`btn btn-sm ${viewMode === "table" ? "btn-primary" : "btn-ghost"}`}
+              style={{ borderRadius: 0, border: "none", borderLeft: "1px solid var(--border-default)" }}
+              onClick={() => setViewMode("table")}
+              data-tooltip="Table View"
+            >
+              <Table2 size={14} />
+            </button>
+          </div>
+
           {/* Automations Button */}
-          <button 
-            className="btn btn-sm" 
+          <button
+            className="btn btn-sm"
             style={{ display: "flex", gap: "6px", alignItems: "center", background: "#2d3748", color: "#e2e8f0", border: "1px solid #4a5568" }}
             onClick={() => setIsAutomationsModalOpen(true)}
           >
@@ -172,8 +227,28 @@ export default function BoardPage() {
 
       {/* Kanban Board / Table */}
       <div style={{ flex: 1, overflow: "hidden" }}>
-        <KanbanBoard boardId={boardId} />
+        {viewMode === "kanban" ? (
+          <KanbanBoard boardId={boardId} />
+        ) : (
+          <div style={{ height: "100%", overflowY: "auto" }}>
+            <BoardTableView
+              boardId={boardId}
+              columns={board?.columns || []}
+              tasks={allTasks}
+              onTaskClick={(task) => setTableSelectedTask(task)}
+            />
+          </div>
+        )}
       </div>
+
+      {/* Task modal for table view clicks */}
+      {tableSelectedTask && (
+        <TaskDetailModal
+          task={tableSelectedTask}
+          boardId={boardId}
+          onClose={() => setTableSelectedTask(null)}
+        />
+      )}
 
       {/* Invite Modal */}
       {isInviteModalOpen && (
@@ -251,7 +326,50 @@ export default function BoardPage() {
               </div>
 
               <div className="divider" />
-              
+
+              {/* Custom Fields Manager */}
+              <div>
+                <h4 style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: "var(--space-3)" }}>Custom Fields</h4>
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+                  {(board?.custom_fields || []).map((f: any) => (
+                    <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-2) var(--space-3)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)" }}>
+                      <span style={{ flex: 1, fontSize: "0.85rem", fontWeight: 600 }}>{f.name}</span>
+                      <span className="badge" style={{ fontSize: "0.7rem" }}>{f.field_type}</span>
+                      <button className="btn btn-ghost btn-sm" style={{ color: "var(--color-danger)", padding: "2px" }} onClick={() => deleteCustomFieldMutation.mutate(f.id)}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                  <input
+                    className="form-input"
+                    placeholder="Field name..."
+                    value={newFieldName}
+                    onChange={(e) => setNewFieldName(e.target.value)}
+                    style={{ flex: 1, fontSize: "0.85rem" }}
+                    onKeyDown={(e) => e.key === "Enter" && newFieldName && createCustomFieldMutation.mutate({ name: newFieldName, field_type: newFieldType })}
+                  />
+                  <select className="form-input form-select" value={newFieldType} onChange={(e) => setNewFieldType(e.target.value)} style={{ width: "100px", fontSize: "0.82rem" }}>
+                    <option value="text">Text</option>
+                    <option value="number">Number</option>
+                    <option value="date">Date</option>
+                    <option value="select">Select</option>
+                    <option value="checkbox">Checkbox</option>
+                    <option value="url">URL</option>
+                  </select>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => newFieldName && createCustomFieldMutation.mutate({ name: newFieldName, field_type: newFieldType })}
+                    disabled={!newFieldName || createCustomFieldMutation.isPending}
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="divider" />
+
               <div>
                 <h4 style={{ color: "var(--color-danger)", fontWeight: 700, fontSize: "0.9rem", marginBottom: "var(--space-2)" }}>Danger Zone</h4>
                 <p style={{ fontSize: "0.8rem", color: "var(--text-secondary)", marginBottom: "var(--space-3)" }}>
