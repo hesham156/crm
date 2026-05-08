@@ -15,8 +15,13 @@ apiClient.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   if (config.data instanceof FormData) {
-    // Let browser set the boundary
-    delete config.headers["Content-Type"];
+    // Must remove Content-Type so browser sets multipart/form-data with correct boundary.
+    // In axios v1.x config.headers is an AxiosHeaders instance — use .delete() not delete operator.
+    if (typeof config.headers.delete === "function") {
+      config.headers.delete("Content-Type");
+    } else {
+      delete (config.headers as Record<string, unknown>)["Content-Type"];
+    }
   }
   return config;
 });
