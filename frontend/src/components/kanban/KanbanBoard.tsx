@@ -200,7 +200,9 @@ export default function KanbanBoard({ boardId }: KanbanBoardProps) {
 
   const columns: Column[] = board?.columns || [];
   const allAssignees = Array.from(
-    new Map(tasks.flatMap((t) => t.assigned_to.map((a: any) => [a.id, a])).filter(Boolean)).values()
+    new Map<string, { id: string; full_name_en: string }>(
+      tasks.flatMap((t) => t.assigned_to.map((a: any) => [a.id, a] as [string, any]))
+    ).values()
   ) as { id: string; full_name_en: string }[];
 
   return (
