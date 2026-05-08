@@ -100,8 +100,8 @@ export default function WorkloadPage() {
 
                   {/* Priority breakdown */}
                   <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-3)" }}>
-                    {Object.entries(u.by_priority).map(([priority, count]) =>
-                      (count as number) > 0 ? (
+                    {Object.entries(u.by_priority as Record<string, number>).map(([priority, count]) =>
+                      count > 0 ? (
                         <span
                           key={priority}
                           className="badge"
