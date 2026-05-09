@@ -8,7 +8,8 @@ import { useNotificationStore } from "@/store/useNotificationStore";
 import {
   LayoutDashboard, Columns, Users, ShoppingBag, Palette,
   Package, BarChart3, Settings, ChevronLeft,
-  ChevronRight, Bell, Globe, MonitorPlay, DatabaseBackup, GitBranch
+  ChevronRight, Bell, Globe, MonitorPlay, DatabaseBackup, GitBranch,
+  FileText
 } from "lucide-react";
 
 interface NavItem {
@@ -36,6 +37,7 @@ const NAV_SECTIONS: { title: string; titleAr: string; items: NavItem[] }[] = [
     items: [
       { label: "CRM", labelAr: "إدارة العملاء", href: "/crm", icon: <Users size={18} />, roles: ["admin", "manager", "sales"] },
       { label: "Sales & Jobs", labelAr: "المبيعات والطلبات", href: "/sales", icon: <ShoppingBag size={18} />, roles: ["admin", "manager", "sales"] },
+      { label: "Forms", labelAr: "الفورمات", href: "/forms", icon: <FileText size={18} />, roles: ["admin", "manager", "sales"] },
     ],
   },
   {

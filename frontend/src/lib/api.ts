@@ -251,6 +251,49 @@ export const integrationsApi = {
     apiClient.get("/integrations/logs/", { params: integrationId ? { integration_id: integrationId } : {} }),
 };
 
+// ─── Forms (Form Builder) ────────────────────────────────────────────────────
+export const formsApi = {
+  // Forms CRUD
+  list: () => apiClient.get("/forms/"),
+  get: (id: string) => apiClient.get(`/forms/${id}/`),
+  create: (data: { title: string; description?: string }) => apiClient.post("/forms/", data),
+  update: (id: string, data: unknown) => apiClient.patch(`/forms/${id}/`, data),
+  delete: (id: string) => apiClient.delete(`/forms/${id}/`),
+  duplicate: (id: string) => apiClient.post(`/forms/${id}/duplicate/`),
+
+  // Steps
+  steps: (formId: string) => apiClient.get(`/forms/${formId}/steps/`),
+  createStep: (formId: string, data: { title?: string }) =>
+    apiClient.post(`/forms/${formId}/steps/`, data),
+  updateStep: (stepId: string, data: unknown) => apiClient.patch(`/forms/steps/${stepId}/`, data),
+  deleteStep: (stepId: string) => apiClient.delete(`/forms/steps/${stepId}/`),
+
+  // Fields
+  fields: (stepId: string) => apiClient.get(`/forms/steps/${stepId}/fields/`),
+  createField: (stepId: string, data: unknown) =>
+    apiClient.post(`/forms/steps/${stepId}/fields/`, data),
+  updateField: (fieldId: string, data: unknown) =>
+    apiClient.patch(`/forms/fields/${fieldId}/`, data),
+  deleteField: (fieldId: string) => apiClient.delete(`/forms/fields/${fieldId}/`),
+  reorderFields: (stepId: string, fields: { id: string; order: number }[]) =>
+    apiClient.post(`/forms/steps/${stepId}/reorder/`, { fields }),
+
+  // Submissions
+  submissions: (formId: string) => apiClient.get(`/forms/${formId}/submissions/`),
+  submission: (id: string) => apiClient.get(`/forms/submissions/${id}/`),
+  markRead: (id: string) => apiClient.patch(`/forms/submissions/${id}/`, { is_read: true }),
+
+  // Public (no auth)
+  publicForm: (slug: string) => apiClient.get(`/forms/public/${slug}/`),
+  publicSubmit: (slug: string, data: { responses: { field_id: string; value: unknown }[] }) =>
+    apiClient.post(`/forms/public/${slug}/submit/`, data),
+  publicUploadFile: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiClient.post("/forms/public/upload/", form);
+  },
+};
+
 // ─── Backup ───────────────────────────────────────────────
 export const backupApi = {
   list:    () => apiClient.get("/backup/"),

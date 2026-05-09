@@ -1,13 +1,24 @@
 "use client";
 
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, usersApi } from "@/lib/api";
 import { useAuthStore } from "@/store/useAuthStore";
 import toast from "react-hot-toast";
-import { X } from "lucide-react";
+import { format } from "date-fns";
+import { X, MessageSquare, Clock, Flag, Paperclip, Link2, Upload, Loader2, ExternalLink, Trash2, Send, Timer, Play, Square, File, Plus } from "lucide-react";
 import { TaskCreateForm } from "./TaskCreateForm";
 import { TaskDetailTabs } from "./TaskDetailTabs";
 import { TaskDetailSidebar } from "./TaskDetailSidebar";
+import { MentionTextArea } from "@/components/ui/MentionTextArea";
+import { MultiSelectSearch } from "@/components/ui/MultiSelectSearch";
+
+const PRIORITIES = [
+  { value: "low", label: "Low", color: "#22c55e" },
+  { value: "medium", label: "Medium", color: "#f59e0b" },
+  { value: "high", label: "High", color: "#ef4444" },
+  { value: "urgent", label: "Urgent", color: "#7c3aed" },
+];
 
 interface Task {
   id: string;
@@ -30,6 +41,42 @@ export default function TaskDetailModal({
   const qc = useQueryClient();
   const { user } = useAuthStore();
   const isNew = !task;
+  const [activeTab, setActiveTab] = useState<"details" | "comments" | "time" | "activity">("details");
+  const [showLinkInput, setShowLinkInput] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkName, setLinkName] = useState("");
+  const [commentBody, setCommentBody] = useState("");
+  const [mentionIds, setMentionIds] = useState<string[]>([]);
+  const [timeMinutes, setTimeMinutes] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFilesDrop = (files: FileList | null) => {
+    if (!files) return;
+    Array.from(files).forEach((file) => uploadAttachmentMutation.mutate(file));
+  };
+
+  const handleAddLink = () => {
+    if (!linkUrl.trim()) return;
+    addLinkMutation.mutate({ url: linkUrl.trim(), name: linkName.trim() || linkUrl.trim() });
+    setLinkUrl("");
+    setLinkName("");
+    setShowLinkInput(false);
+  };
+
+  const handleComment = () => {
+    if (!commentBody.trim()) return;
+    commentMutation.mutate({ body: commentBody.trim(), mentions: mentionIds });
+    setCommentBody("");
+    setMentionIds([]);
+  };
+
+  const handleTimeLog = () => {
+    const mins = parseInt(timeMinutes);
+    if (!mins || mins <= 0) return;
+    timeLogMutation.mutate(mins);
+    setTimeMinutes("");
+  };
 
   const { data: columns = [] } = useQuery({
     queryKey: ["columns", boardId],
