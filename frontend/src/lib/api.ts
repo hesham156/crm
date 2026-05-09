@@ -183,14 +183,6 @@ export const crmApi = {
   updateCustomer: (id: string, data: unknown) =>
     apiClient.patch(`/crm/customers/${id}/`, data),
 
-  // Google Sheets → CRM sync
-  sheetsSyncs: () => apiClient.get("/crm/sheets-sync/"),
-  createSheetsSync: (data: unknown) => apiClient.post("/crm/sheets-sync/", data),
-  updateSheetsSync: (id: string, data: unknown) => apiClient.patch(`/crm/sheets-sync/${id}/`, data),
-  deleteSheetsSync: (id: string) => apiClient.delete(`/crm/sheets-sync/${id}/`),
-  testSheetsConnection: (data: { spreadsheet_id: string; sheet_name?: string; header_row?: number }) =>
-    apiClient.post("/crm/sheets-sync/test/", data),
-  runSheetsSync: (id: string) => apiClient.post(`/crm/sheets-sync/${id}/run/`),
 };
 
 // ─── Sales ────────────────────────────────────────────────────────────────
@@ -243,6 +235,20 @@ export const inventoryApi = {
   transactions: (params?: Record<string, unknown>) => apiClient.get("/inventory/transactions/", { params }),
   createTransaction: (data: unknown) => apiClient.post("/inventory/transactions/", data),
   lowStock: () => apiClient.get("/inventory/reports/low-stock/"),
+};
+
+// ─── Integrations (Google Sheets → CRM) ──────────────────────────────────────
+export const integrationsApi = {
+  list: () => apiClient.get("/integrations/sheets/"),
+  get: (id: string) => apiClient.get(`/integrations/sheets/${id}/`),
+  create: (data: unknown) => apiClient.post("/integrations/sheets/", data),
+  update: (id: string, data: unknown) => apiClient.patch(`/integrations/sheets/${id}/`, data),
+  delete: (id: string) => apiClient.delete(`/integrations/sheets/${id}/`),
+  testConnection: (data: { spreadsheet_id: string; sheet_name?: string; header_row?: number }) =>
+    apiClient.post("/integrations/sheets/test-connection/", data),
+  syncNow: (id: string) => apiClient.post(`/integrations/sheets/${id}/sync-now/`),
+  logs: (integrationId?: string) =>
+    apiClient.get("/integrations/logs/", { params: integrationId ? { integration_id: integrationId } : {} }),
 };
 
 // ─── Backup ───────────────────────────────────────────────

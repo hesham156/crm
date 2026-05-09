@@ -279,10 +279,9 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 CELERY_BEAT_SCHEDULE = {
-    # Check all enabled Google Sheets sync configs every 60 seconds
-    # and run those that are due (based on each config's sync_interval_minutes)
-    "run-due-sheets-syncs": {
-        "task": "apps.crm.tasks.run_due_sheets_syncs",
+    # Check all active integrations every 60 s and sync those that are due
+    "run-due-integrations": {
+        "task": "apps.integrations.tasks.run_due_integrations",
         "schedule": 60.0,  # seconds
     },
 }
