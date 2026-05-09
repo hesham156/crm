@@ -271,6 +271,9 @@ LOGGING = {
 GOOGLE_DRIVE_CREDENTIALS_PATH = os.path.join(BASE_DIR, config("GOOGLE_DRIVE_CREDENTIALS_PATH", default="credentials.json"))
 GOOGLE_DRIVE_ROOT_FOLDER_ID = config("GOOGLE_DRIVE_ROOT_FOLDER_ID", default=None)
 
+# ─── Google Sheets (API Key for public sheets, or rely on Drive service account) ──
+GOOGLE_SHEETS_API_KEY = config("GOOGLE_SHEETS_API_KEY", default="")
+
 # ─── Celery ───────────────────────────────────────────────────────────────────
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL

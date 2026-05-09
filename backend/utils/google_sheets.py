@@ -1,16 +1,19 @@
 """
 Google Sheets API utilities for CRM sync.
-Uses the same service account credentials as Google Drive.
+
+Supports two auth methods (tried in order):
+  1. API Key  — set GOOGLE_SHEETS_API_KEY in .env
+               Sheet must be "Anyone with the link can view" (public).
+  2. Service Account — set GOOGLE_DRIVE_CREDENTIALS_PATH to a service account JSON.
+               Share the sheet with the service account email as Viewer.
 """
 import os
 import logging
 from django.conf import settings
-from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 logger = logging.getLogger(__name__)
 
-# Sheets needs readonly scope; Drive scope already included in google_drive.py
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
     "https://www.googleapis.com/auth/spreadsheets.readonly",
@@ -18,17 +21,36 @@ SCOPES = [
 
 
 def get_sheets_service():
-    """Returns an authenticated Google Sheets v4 service, or None if unconfigured."""
+    """
+    Returns an authenticated Google Sheets v4 service.
+    Tries API Key first, then Service Account. Raises ValueError if neither is configured.
+    """
+    # ── Method 1: API Key (public sheets) ─────────────────────────────────────
+    api_key = getattr(settings, "GOOGLE_SHEETS_API_KEY", None) or os.environ.get("GOOGLE_SHEETS_API_KEY")
+    if api_key:
+        try:
+            service = build("sheets", "v4", developerKey=api_key, cache_discovery=False)
+            logger.debug("Google Sheets: using API Key auth")
+            return service
+        except Exception as e:
+            logger.warning("Google Sheets API Key auth failed: %s", e)
+
+    # ── Method 2: Service Account (private sheets) ────────────────────────────
     creds_path = getattr(settings, "GOOGLE_DRIVE_CREDENTIALS_PATH", None)
-    if not creds_path or not os.path.exists(creds_path):
-        return None
-    try:
-        creds = service_account.Credentials.from_service_account_file(creds_path, scopes=SCOPES)
-        service = build("sheets", "v4", credentials=creds, cache_discovery=False)
-        return service
-    except Exception as e:
-        logger.error("Failed to authenticate Google Sheets: %s", e)
-        return None
+    if creds_path and os.path.exists(creds_path):
+        try:
+            from google.oauth2 import service_account
+            creds = service_account.Credentials.from_service_account_file(creds_path, scopes=SCOPES)
+            service = build("sheets", "v4", credentials=creds, cache_discovery=False)
+            logger.debug("Google Sheets: using Service Account auth")
+            return service
+        except Exception as e:
+            logger.error("Google Sheets Service Account auth failed: %s", e)
+
+    raise ValueError(
+        "Google Sheets is not configured. Set GOOGLE_SHEETS_API_KEY (for public sheets) "
+        "or GOOGLE_DRIVE_CREDENTIALS_PATH (for private sheets with a service account)."
+    )
 
 
 def read_sheet(spreadsheet_id: str, sheet_name: str = "Sheet1", header_row: int = 1):

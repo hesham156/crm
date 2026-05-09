@@ -1,28 +1,43 @@
 import os
-from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from django.conf import settings
 from apps.crm.models import Customer
 from .models import SyncLog
 from django.utils import timezone
 
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+
 
 class GoogleSheetsService:
-    SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+    """
+    Supports two auth methods (in order):
+    1. API Key  → GOOGLE_SHEETS_API_KEY in .env  (sheet must be public/viewable by anyone)
+    2. Service Account → GOOGLE_DRIVE_CREDENTIALS_PATH pointing to a JSON key file
+    """
 
     def __init__(self):
-        # We assume GOOGLE_SHEETS_CREDENTIALS_PATH is set in settings or .env
-        creds_path = getattr(settings, 'GOOGLE_DRIVE_CREDENTIALS_PATH', 'credentials.json')
-        if not os.path.exists(creds_path):
-            raise FileNotFoundError(
-                f"Google Service Account credentials file not found at {creds_path}. "
-                "Please configure GOOGLE_DRIVE_CREDENTIALS_PATH in your .env file."
-            )
-
-        self.credentials = Credentials.from_service_account_file(
-            creds_path, scopes=self.SCOPES
+        # ── Method 1: API Key ──────────────────────────────────────────────────
+        api_key = (
+            getattr(settings, "GOOGLE_SHEETS_API_KEY", None)
+            or os.environ.get("GOOGLE_SHEETS_API_KEY")
         )
-        self.service = build('sheets', 'v4', credentials=self.credentials)
+        if api_key:
+            self.service = build("sheets", "v4", developerKey=api_key, cache_discovery=False)
+            return
+
+        # ── Method 2: Service Account ──────────────────────────────────────────
+        creds_path = getattr(settings, "GOOGLE_DRIVE_CREDENTIALS_PATH", "credentials.json")
+        if os.path.exists(creds_path):
+            from google.oauth2.service_account import Credentials
+            creds = Credentials.from_service_account_file(creds_path, scopes=SCOPES)
+            self.service = build("sheets", "v4", credentials=creds, cache_discovery=False)
+            return
+
+        raise ValueError(
+            "Google Sheets is not configured.\n"
+            "• For public sheets: set GOOGLE_SHEETS_API_KEY in .env\n"
+            "• For private sheets: set GOOGLE_DRIVE_CREDENTIALS_PATH to a service account JSON file"
+        )
 
     def fetch_rows(self, spreadsheet_id, sheet_name, start_row=2):
         """
