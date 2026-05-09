@@ -182,6 +182,15 @@ export const crmApi = {
   createCustomer: (data: unknown) => apiClient.post("/crm/customers/", data),
   updateCustomer: (id: string, data: unknown) =>
     apiClient.patch(`/crm/customers/${id}/`, data),
+
+  // Google Sheets → CRM sync
+  sheetsSyncs: () => apiClient.get("/crm/sheets-sync/"),
+  createSheetsSync: (data: unknown) => apiClient.post("/crm/sheets-sync/", data),
+  updateSheetsSync: (id: string, data: unknown) => apiClient.patch(`/crm/sheets-sync/${id}/`, data),
+  deleteSheetsSync: (id: string) => apiClient.delete(`/crm/sheets-sync/${id}/`),
+  testSheetsConnection: (data: { spreadsheet_id: string; sheet_name?: string; header_row?: number }) =>
+    apiClient.post("/crm/sheets-sync/test/", data),
+  runSheetsSync: (id: string) => apiClient.post(`/crm/sheets-sync/${id}/run/`),
 };
 
 // ─── Sales ────────────────────────────────────────────────────────────────

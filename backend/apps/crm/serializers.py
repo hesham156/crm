@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps.accounts.serializers import UserListSerializer
-from .models import Customer, FollowUp
+from .models import Customer, FollowUp, GoogleSheetsSync
 
 
 class CustomerSerializer(serializers.ModelSerializer):
@@ -20,3 +20,18 @@ class FollowUpSerializer(serializers.ModelSerializer):
         model = FollowUp
         fields = ["id", "customer", "created_by", "note", "follow_up_date", "is_done", "created_at"]
         read_only_fields = ["created_by"]
+
+
+class GoogleSheetsSyncSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GoogleSheetsSync
+        fields = [
+            "id", "name", "spreadsheet_id", "sheet_name", "header_row",
+            "sync_interval_minutes", "is_enabled", "field_mapping", "match_field",
+            "last_sync_at", "last_sync_status", "last_sync_message", "total_synced",
+            "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "last_sync_at", "last_sync_status", "last_sync_message",
+            "total_synced", "created_at", "updated_at",
+        ]

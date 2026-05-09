@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { Users, Plus, Search, Phone, Mail, Building2, X, Loader2 } from "lucide-react";
+import { Users, Plus, Search, Phone, Mail, Building2, X, Loader2, Sheet } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { crmApi } from "@/lib/api";
@@ -95,9 +95,19 @@ export default function CRMPage() {
           <h1 className="page-title">{isAr ? "إدارة العملاء" : "CRM"}</h1>
           <p className="page-subtitle">{isAr ? "العملاء والعملاء المحتملون" : "Customers, leads and deals"}</p>
         </div>
-        <button id="new-customer-btn" className="btn btn-primary" onClick={() => { setSelectedCustomer(null); reset(); setIsModalOpen(true); }}>
-          <Plus size={16} />{isAr ? "عميل جديد" : "New Customer"}
-        </button>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/crm/sheets-sync"
+            className="btn"
+            style={{ background: "var(--bg-secondary)", color: "var(--text-secondary)", border: "1px solid var(--border-color)", display: "flex", alignItems: "center", gap: "6px" }}
+          >
+            <Sheet size={15} />
+            {isAr ? "ربط Google Sheets" : "Google Sheets Sync"}
+          </Link>
+          <button id="new-customer-btn" className="btn btn-primary" onClick={() => { setSelectedCustomer(null); reset(); setIsModalOpen(true); }}>
+            <Plus size={16} />{isAr ? "عميل جديد" : "New Customer"}
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
