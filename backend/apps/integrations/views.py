@@ -23,14 +23,7 @@ class GoogleSheetsIntegrationViewSet(viewsets.ModelViewSet):
         if not integration.is_active:
             return Response({"error": "Integration is disabled."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Try async Celery task first; fall back to sync if broker unavailable
-        try:
-            from .tasks import run_single_integration
-            task = run_single_integration.delay(str(integration.id))
-            return Response({"status": "queued", "task_id": task.id})
-        except Exception:
-            pass
-
+        # Always run synchronously for manual triggers — user sees result immediately
         try:
             service = GoogleSheetsService()
             log = service.sync_integration(integration, triggered_by="manual")

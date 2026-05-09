@@ -275,8 +275,9 @@ GOOGLE_DRIVE_ROOT_FOLDER_ID = config("GOOGLE_DRIVE_ROOT_FOLDER_ID", default=None
 GOOGLE_SHEETS_API_KEY = config("GOOGLE_SHEETS_API_KEY", default="")
 
 # ─── Celery ───────────────────────────────────────────────────────────────────
-CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = REDIS_URL
+# Only configure Redis broker if Redis is enabled (avoids connection errors in local dev)
+CELERY_BROKER_URL = REDIS_URL if USE_REDIS else "memory://"
+CELERY_RESULT_BACKEND = REDIS_URL if USE_REDIS else "cache+memory://"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
