@@ -66,17 +66,41 @@ def _run_automations_inner(task, trigger_type, new_value, user=None):
                         target_board_id = avalue.get("board_id")
                         target_col_id = avalue.get("column_id")
                         assignee_id = avalue.get("assignee_id")
-                        
+
+                        # Capture readable names BEFORE changing
+                        from .models import Board
+                        old_board_name = task.board.name if task.board_id else "Unknown"
+                        old_col_name = task.column.name if task.column_id else "Unknown"
+
                         updates = ["updated_at"]
-                        if target_board_id:
+
+                        # Save origin_board the first time the task leaves its home board
+                        if target_board_id and str(task.board_id) != str(target_board_id):
+                            if not task.origin_board_id:
+                                task.origin_board_id = task.board_id
+                                updates.append("origin_board_id")
                             task.board_id = target_board_id
                             updates.append("board_id")
+
                         if target_col_id:
                             task.column_id = target_col_id
                             updates.append("column_id")
-                            
+
                         task.save(update_fields=updates)
-                        
+
+                        # Resolve readable names AFTER saving
+                        new_board = Board.objects.filter(id=target_board_id).first()
+                        new_board_name = new_board.name if new_board else str(target_board_id)
+                        new_col = Column.objects.filter(id=target_col_id).first()
+                        new_col_name = new_col.name if new_col else str(target_col_id)
+
+                        TaskActivity.objects.create(
+                            task=task, user=user,
+                            field_changed="board (Automation)",
+                            old_value=f"{old_board_name} / {old_col_name}",
+                            new_value=f"{new_board_name} / {new_col_name}"
+                        )
+
                         if assignee_id:
                             task.assigned_to.add(assignee_id)
                             try:
@@ -92,7 +116,7 @@ def _run_automations_inner(task, trigger_type, new_value, user=None):
                             except Exception as e:
                                 logger.error(f"Failed to send assignment notification from automation: {e}", exc_info=True)
                     except Exception as e:
-                        logger.error(f"move_to_board automation failed for task {task.id}: {e}", exc_info=True)
+                        logger.error(f"move_to_board automation failed: {e}", exc_info=True)
 
                 elif atype == "auto_assign":
                     task.assigned_to.add(avalue)
@@ -117,6 +141,7 @@ def _run_automations_inner(task, trigger_type, new_value, user=None):
                             recipient_ids = [rid for rid in recipient_ids if rid != str(user.id)]
                         
                         if recipient_ids:
+                            # pyrefly: ignore [missing-import]
                             from apps.notifications.models import send_notification
                             send_notification(
                                 recipient_ids=recipient_ids,
@@ -174,10 +199,21 @@ def _run_automations_inner(task, trigger_type, new_value, user=None):
                         set_status      = avalue.get("set_status")
 
                         if if_in_col_id and str(task.column_id) == str(if_in_col_id):
+                            # Capture readable names BEFORE changing
+                            from .models import Board
+                            old_board_name = task.board.name if task.board_id else "Unknown"
+                            old_col_name = task.column.name if task.column_id else "Unknown"
+
                             updates = ["updated_at"]
-                            if target_board_id:
+
+                            # Save origin_board the first time the task leaves its home board
+                            if target_board_id and str(task.board_id) != str(target_board_id):
+                                if not task.origin_board_id:
+                                    task.origin_board_id = task.board_id
+                                    updates.append("origin_board_id")
                                 task.board_id = target_board_id
                                 updates.append("board_id")
+
                             if target_col_id:
                                 task.column_id = target_col_id
                                 updates.append("column_id")
@@ -185,10 +221,18 @@ def _run_automations_inner(task, trigger_type, new_value, user=None):
                                 task.client_status = set_status
                                 updates.append("client_status")
                             task.save(update_fields=updates)
+
+                            # Resolve readable names AFTER saving
+                            new_board = Board.objects.filter(id=target_board_id).first()
+                            new_board_name = new_board.name if new_board else str(target_board_id)
+                            new_col = Column.objects.filter(id=target_col_id).first()
+                            new_col_name = new_col.name if new_col else str(target_col_id)
+
                             TaskActivity.objects.create(
                                 task=task, user=None,
-                                field_changed="board/column (Missing & Redo Automation)",
-                                old_value="", new_value=f"board:{target_board_id} col:{target_col_id}"
+                                field_changed="board (Automation)",
+                                old_value=f"{old_board_name} / {old_col_name}",
+                                new_value=f"{new_board_name} / {new_col_name}"
                             )
                     except Exception as e:
                         logger.error(f"conditional_move_to_board failed: {e}", exc_info=True)

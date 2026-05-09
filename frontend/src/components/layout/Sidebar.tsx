@@ -8,7 +8,7 @@ import { useNotificationStore } from "@/store/useNotificationStore";
 import {
   LayoutDashboard, Columns, Users, ShoppingBag, Palette,
   Package, BarChart3, Settings, ChevronLeft,
-  ChevronRight, Bell, Globe, MonitorPlay, DatabaseBackup
+  ChevronRight, Bell, Globe, MonitorPlay, DatabaseBackup, GitBranch
 } from "lucide-react";
 
 interface NavItem {
@@ -59,6 +59,7 @@ const NAV_SECTIONS: { title: string; titleAr: string; items: NavItem[] }[] = [
     items: [
       { label: "Users & Roles", labelAr: "المستخدمون والأدوار", href: "/settings/users", icon: <Settings size={18} />, roles: ["admin", "manager"] },
       { label: "Boards Monitor", labelAr: "مراقبة اللوحات", href: "/tasks/admin", icon: <MonitorPlay size={18} />, roles: ["admin", "manager"] },
+      { label: "Pipeline Tracker", labelAr: "رحلة المهام", href: "/tasks/tracker", icon: <GitBranch size={18} color="#8b5cf6" />, roles: ["admin", "manager"] },
       { label: "Backup", labelAr: "النسخ الاحتياطي", href: "/backup", icon: <DatabaseBackup size={18} />, roles: ["admin"] },
     ],
   },

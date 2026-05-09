@@ -1,4 +1,5 @@
 from rest_framework import serializers
+# pyrefly: ignore [missing-import]
 from apps.accounts.serializers import UserListSerializer
 from .models import Board, Column, Task, Comment, TimeLog, TaskAttachment, Tag, BoardAutomation, TaskActivity, BoardCustomField, Sprint
 
@@ -191,11 +192,13 @@ class TaskSerializer(serializers.ModelSerializer):
     )
     is_blocked = serializers.SerializerMethodField()
     progress = serializers.SerializerMethodField()
+    origin_board_name = serializers.CharField(source="origin_board.name", read_only=True, default=None)
+    board_name = serializers.CharField(source="board.name", read_only=True)
 
     class Meta:
         model = Task
         fields = [
-            "id", "board", "column", "column_name", "parent",
+            "id", "board", "board_name", "column", "column_name", "parent",
             "title", "description",
             "created_by", "created_by_name",
             "assigned_to", "assigned_to_ids",
@@ -205,12 +208,10 @@ class TaskSerializer(serializers.ModelSerializer):
             "job", "is_archived",
             "subtasks_count", "comments_count",
             "blocked_by", "blocked_by_ids", "is_blocked", "progress",
-            "recurrence_rule", "recurrence_interval", "recurrence_end_date", "is_recurring_template",
-            "custom_field_values",
-            "sprint", "story_points",
+            "origin_board", "origin_board_name",
             "created_at", "updated_at",
         ]
-        read_only_fields = ["created_by", "time_logged", "created_at", "updated_at", "blocked_by", "is_timer_running", "timer_started_at"]
+        read_only_fields = ["created_by", "time_logged", "created_at", "updated_at", "blocked_by", "is_timer_running", "timer_started_at", "origin_board"]
 
     def get_is_blocked(self, obj):
         return obj.blocked_by.filter(is_archived=False).exclude(column__name__iexact="Done").exists()
@@ -242,6 +243,8 @@ class TaskSerializer(serializers.ModelSerializer):
         if column:
             max_pos = Task.objects.filter(column=column, is_archived=False).count()
             validated_data["position"] = max_pos
+            # Set origin_board = the board this task was created in
+            validated_data["origin_board"] = column.board
             
         task = super().create(validated_data)
         

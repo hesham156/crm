@@ -596,3 +596,76 @@ class AdminBoardsOverviewView(APIView):
             result.append(board_data)
 
         return Response(result)
+
+
+class GlobalTaskTrackerView(APIView):
+    """
+    Returns ALL non-archived tasks across all boards with journey info.
+    Used by the Pipeline Tracker page for cross-board task visibility.
+    Accessible to admins and managers.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not (request.user.is_manager or request.user.role in ['admin', 'manager']):
+            return Response({"detail": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+        tasks = Task.objects.select_related(
+            "board", "column", "created_by", "origin_board"
+        ).prefetch_related(
+            "assigned_to",
+            "activities"
+        ).filter(is_archived=False, parent__isnull=True).order_by("-created_at")
+
+        result = []
+        for task in tasks:
+            # Pull board-transition activities to build the journey
+            board_activities = [
+                a for a in task.activities.all()
+                if "board" in (a.field_changed or "").lower()
+            ]
+
+            journey_steps = []
+            # First step = origin board
+            if task.origin_board_id:
+                journey_steps.append({
+                    "board_name": task.origin_board.name if task.origin_board else "Unknown",
+                    "timestamp": task.created_at.isoformat(),
+                    "label": "Created",
+                })
+            # Middle steps = each board transition logged in activities
+            for act in board_activities:
+                journey_steps.append({
+                    "board_name": act.new_value,
+                    "timestamp": act.timestamp.isoformat(),
+                    "label": act.field_changed,
+                })
+
+            result.append({
+                "id": str(task.id),
+                "title": task.title,
+                "priority": task.priority,
+                "client_status": task.client_status,
+                "due_date": task.due_date.isoformat() if task.due_date else None,
+                "created_at": task.created_at.isoformat(),
+                # Current position
+                "board_id": str(task.board_id),
+                "board_name": task.board.name if task.board else "Unknown",
+                "board_color": task.board.color if task.board else "#94a3b8",
+                "column_name": task.column.name if task.column else "Unknown",
+                "column_color": task.column.color if task.column else "gray",
+                # Origin info
+                "origin_board_id": str(task.origin_board_id) if task.origin_board_id else None,
+                "origin_board_name": task.origin_board.name if task.origin_board else None,
+                # Assignees
+                "assigned_to": [
+                    {"id": str(a.id), "full_name_en": a.full_name_en}
+                    for a in task.assigned_to.all()
+                ],
+                # Full journey
+                "journey": journey_steps,
+                "boards_visited": len(set([s["board_name"] for s in journey_steps])),
+                "is_cross_board": bool(task.origin_board_id and str(task.origin_board_id) != str(task.board_id)),
+            })
+
+        return Response(result)

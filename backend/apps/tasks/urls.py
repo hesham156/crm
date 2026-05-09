@@ -27,4 +27,5 @@ urlpatterns = [
     path("comments/<uuid:pk>/", views.CommentDetailView.as_view(), name="comment_detail"),
     path("tags/", views.TagListCreateView.as_view(), name="tags"),
     path("admin-overview/", views.AdminBoardsOverviewView.as_view(), name="admin_overview"),
+    path("tracker/", views.GlobalTaskTrackerView.as_view(), name="task_tracker"),
 ]

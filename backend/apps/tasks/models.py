@@ -106,6 +106,14 @@ class Task(models.Model):
     job = models.ForeignKey(
         "sales.Job", on_delete=models.SET_NULL, null=True, blank=True, related_name="tasks"
     )
+
+    # Board Journey — tracks origin for cross-board tracking
+    origin_board = models.ForeignKey(
+        Board, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="originated_tasks",
+        help_text="The board where this task was originally created"
+    )
+
     is_archived = models.BooleanField(default=False)
 
     # Custom field values: {"field_uuid": value, ...}

@@ -171,6 +171,7 @@ export const tasksApi = {
     apiClient.delete(`/tasks/automations/${id}/`),
 
   adminOverview: () => apiClient.get("/tasks/admin-overview/"),
+  taskTracker: (params?: Record<string, unknown>) => apiClient.get("/tasks/tracker/", { params }),
 };
 
 // ─── CRM ──────────────────────────────────────────────────────────────────
