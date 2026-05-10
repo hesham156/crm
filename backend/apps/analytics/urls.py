@@ -134,6 +134,119 @@ class DashboardView(APIView):
         return Response(data)
 
 
+class TimePerUserView(APIView):
+    """GET /analytics/time-per-user/?days=30  — time logged per employee this period."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.tasks.models import TimeLog
+        from apps.accounts.models import User
+
+        days = int(request.query_params.get("days", 30))
+        since = timezone.now().date() - datetime.timedelta(days=days)
+
+        rows = (
+            TimeLog.objects
+            .filter(logged_at__date__gte=since)
+            .values("user_id", "user__full_name_en", "user__role")
+            .annotate(
+                total_minutes=Sum("duration"),
+                log_count=Count("id"),
+            )
+            .order_by("-total_minutes")
+        )
+
+        data = [
+            {
+                "user_id": str(r["user_id"]),
+                "name": r["user__full_name_en"] or "—",
+                "role": r["user__role"],
+                "hours": round((r["total_minutes"] or 0) / 60, 1),
+                "log_count": r["log_count"],
+            }
+            for r in rows
+        ]
+        return Response({"period_days": days, "results": data})
+
+
+class OverdueTasksView(APIView):
+    """GET /analytics/overdue-tasks/  — all overdue non-archived tasks."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.tasks.models import Task
+
+        today = timezone.now().date()
+        qs = (
+            Task.objects
+            .filter(due_date__lt=today, is_archived=False)
+            .exclude(column__name__icontains="done")
+            .select_related("board", "column", "created_by")
+            .prefetch_related("assigned_to")
+            .order_by("due_date")[:100]
+        )
+
+        data = [
+            {
+                "id": str(t.id),
+                "title": t.title,
+                "board": t.board.name,
+                "column": t.column.name,
+                "due_date": str(t.due_date),
+                "days_overdue": (today - t.due_date).days,
+                "priority": t.priority,
+                "assignees": [u.full_name_en for u in t.assigned_to.all()],
+            }
+            for t in qs
+        ]
+        return Response({"count": len(data), "results": data})
+
+
+class RevenueTrendView(APIView):
+    """GET /analytics/revenue-trend/?months=6  — monthly revenue for the last N months."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from apps.sales.models import Invoice
+
+        months = min(int(request.query_params.get("months", 6)), 12)
+        today = timezone.now().date()
+        result = []
+
+        for i in range(months - 1, -1, -1):
+            # first day of target month
+            first = (today.replace(day=1) - datetime.timedelta(days=1)).replace(day=1)
+            # go back i more months
+            m = today.month - i
+            y = today.year + (m - 1) // 12
+            m = ((m - 1) % 12) + 1
+            month_start = today.replace(year=y, month=m, day=1)
+            if m == 12:
+                month_end = today.replace(year=y + 1, month=1, day=1)
+            else:
+                month_end = today.replace(year=y, month=m + 1, day=1)
+
+            agg = Invoice.objects.filter(
+                created_at__date__gte=month_start,
+                created_at__date__lt=month_end,
+            ).aggregate(
+                total=Sum("total_amount"),
+                collected=Sum("amount_paid"),
+            )
+
+            result.append({
+                "month": month_start.strftime("%b %Y"),
+                "month_iso": str(month_start),
+                "total": float(agg["total"] or 0),
+                "collected": float(agg["collected"] or 0),
+            })
+
+        return Response({"months": months, "results": result})
+
+
 urlpatterns = [
     path("dashboard/", DashboardView.as_view()),
+    path("time-per-user/", TimePerUserView.as_view()),
+    path("overdue-tasks/", OverdueTasksView.as_view()),
+    path("revenue-trend/", RevenueTrendView.as_view()),
 ]

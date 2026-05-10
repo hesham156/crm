@@ -7,9 +7,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line
 } from "recharts";
-import { 
-  Activity, CheckCircle, Clock, AlertCircle, Briefcase, 
-  TrendingUp, Users, PenTool, LayoutDashboard
+import {
+  Activity, CheckCircle, Clock, AlertCircle, Briefcase,
+  TrendingUp, Users, PenTool, LayoutDashboard, Timer, CalendarX
 } from "lucide-react";
 
 export default function AnalyticsPage() {
@@ -22,6 +22,21 @@ export default function AnalyticsPage() {
       const response = await analyticsApi.dashboard();
       return response.data;
     },
+  });
+
+  const { data: timeData } = useQuery({
+    queryKey: ["analyticsTimePerUser"],
+    queryFn: async () => { const r = await analyticsApi.timePerUser(30); return r.data; },
+  });
+
+  const { data: overdueData } = useQuery({
+    queryKey: ["analyticsOverdue"],
+    queryFn: async () => { const r = await analyticsApi.overdueTasks(); return r.data; },
+  });
+
+  const { data: trendData } = useQuery({
+    queryKey: ["analyticsRevenueTrend"],
+    queryFn: async () => { const r = await analyticsApi.revenueTrend(6); return r.data; },
   });
 
   if (isLoading) {
@@ -265,6 +280,90 @@ export default function AnalyticsPage() {
                 </div>
              </div>
            </div>
+        )}
+
+      </div>
+
+      {/* ─── REVENUE TREND (line chart) ──────────────────────────── */}
+      {trendData?.results?.length > 0 && (
+        <div style={{ background: "var(--bg-elevated)", padding: "var(--space-5)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-light)", marginTop: "var(--space-6)" }}>
+          <h3 style={{ marginBottom: "var(--space-4)", fontSize: "1.1rem", display: "flex", alignItems: "center", gap: "8px" }}>
+            <TrendingUp size={20} style={{ color: "var(--brand-primary)" }} />
+            {isAr ? "تريند الإيرادات (آخر 6 أشهر)" : "Revenue Trend (Last 6 Months)"}
+          </h3>
+          <div style={{ height: "260px" }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trendData.results} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" vertical={false} />
+                <XAxis dataKey="month" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
+                <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                <Tooltip
+                  contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)" }}
+                  formatter={(val: number) => [`SAR ${val.toLocaleString()}`, ""]}
+                />
+                <Legend />
+                <Line type="monotone" dataKey="total" name={isAr ? "الإجمالي" : "Total"} stroke="#8b5cf6" strokeWidth={2} dot={{ r: 4 }} />
+                <Line type="monotone" dataKey="collected" name={isAr ? "المحصّل" : "Collected"} stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* ─── TIME PER USER + OVERDUE TASKS ───────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))", gap: "var(--space-6)", marginTop: "var(--space-6)" }}>
+
+        {/* Time per user */}
+        {timeData?.results?.length > 0 && (
+          <div style={{ background: "var(--bg-elevated)", padding: "var(--space-5)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-light)" }}>
+            <h3 style={{ marginBottom: "var(--space-4)", fontSize: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
+              <Timer size={18} style={{ color: "var(--brand-primary)" }} />
+              {isAr ? "إنتاجية الموظفين (آخر 30 يوم)" : "Team Productivity (Last 30 Days)"}
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {timeData.results.slice(0, 8).map((row: any) => {
+                const maxHours = timeData.results[0]?.hours || 1;
+                const pct = Math.round((row.hours / maxHours) * 100);
+                return (
+                  <div key={row.user_id}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", marginBottom: "3px" }}>
+                      <span style={{ fontWeight: 600 }}>{row.name}</span>
+                      <span style={{ color: "var(--brand-primary)", fontWeight: 700 }}>{row.hours} hrs</span>
+                    </div>
+                    <div style={{ height: 6, background: "var(--bg-subtle)", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: "var(--brand-primary)", borderRadius: 3, transition: "width 0.4s ease" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Overdue tasks */}
+        {overdueData?.count > 0 && (
+          <div style={{ background: "var(--bg-elevated)", padding: "var(--space-5)", borderRadius: "var(--radius-lg)", border: "1px solid var(--border-light)" }}>
+            <h3 style={{ marginBottom: "var(--space-4)", fontSize: "1rem", display: "flex", alignItems: "center", gap: "8px" }}>
+              <CalendarX size={18} style={{ color: "var(--color-danger, #ef4444)" }} />
+              {isAr ? `تاسكات متأخرة (${overdueData.count})` : `Overdue Tasks (${overdueData.count})`}
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "280px", overflowY: "auto" }}>
+              {overdueData.results.slice(0, 10).map((t: any) => (
+                <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "8px 10px", background: "var(--bg-card)", borderRadius: "var(--radius-md)", gap: "8px" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: "0.82rem", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title}</p>
+                    <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "var(--text-muted)" }}>{t.board} › {t.column}</p>
+                    {t.assignees?.length > 0 && (
+                      <p style={{ margin: "2px 0 0", fontSize: "0.72rem", color: "var(--text-secondary)" }}>{t.assignees.join(", ")}</p>
+                    )}
+                  </div>
+                  <span style={{ flexShrink: 0, fontSize: "0.72rem", fontWeight: 700, background: "#ef444420", color: "#ef4444", padding: "2px 7px", borderRadius: 10 }}>
+                    +{t.days_overdue}d
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
       </div>

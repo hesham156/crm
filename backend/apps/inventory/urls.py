@@ -1,5 +1,5 @@
 from django.urls import path
-from rest_framework import generics, filters
+from rest_framework import generics, filters, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -69,6 +69,26 @@ class LowStockReport(APIView):
         return Response(ItemSerializer(items, many=True).data)
 
 
+class ScrapeProductUrlView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        url = (request.data.get("url") or "").strip()
+        if not url:
+            return Response({"error": "الرابط مطلوب"}, status=status.HTTP_400_BAD_REQUEST)
+        if not url.startswith(("http://", "https://")):
+            return Response({"error": "الرابط غير صالح"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            from .scraper import scrape_product
+            return Response(scrape_product(url))
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        except Exception as e:
+            import logging
+            logging.getLogger("apps").error(f"scrape_product error: {e}", exc_info=True)
+            return Response({"error": "حدث خطأ غير متوقع"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 from django.db import models
 
 urlpatterns = [
@@ -81,4 +101,5 @@ urlpatterns = [
     path("items/<uuid:pk>/", ItemDetail.as_view()),
     path("transactions/", TransactionListCreate.as_view()),
     path("reports/low-stock/", LowStockReport.as_view()),
+    path("scrape-url/", ScrapeProductUrlView.as_view()),
 ]

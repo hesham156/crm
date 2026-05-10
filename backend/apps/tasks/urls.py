@@ -28,4 +28,5 @@ urlpatterns = [
     path("tags/", views.TagListCreateView.as_view(), name="tags"),
     path("admin-overview/", views.AdminBoardsOverviewView.as_view(), name="admin_overview"),
     path("tracker/", views.GlobalTaskTrackerView.as_view(), name="task_tracker"),
+    path("boards/<uuid:board_id>/automation-logs/", views.AutomationLogListView.as_view(), name="automation_logs"),
 ]

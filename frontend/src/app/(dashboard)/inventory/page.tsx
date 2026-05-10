@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { inventoryApi } from "@/lib/api";
 import { useUIStore } from "@/store/useUIStore";
 import { useState } from "react";
-import { PackageOpen, AlertTriangle, Plus, ArrowDownRight, ArrowUpRight, Search, X, Check } from "lucide-react";
+import { PackageOpen, AlertTriangle, Plus, ArrowDownRight, ArrowUpRight, Search, X, Check, Link2, Loader2, ExternalLink, Image as ImageIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { Pagination } from "@/components/ui/Pagination";
 
@@ -16,9 +16,16 @@ export default function InventoryPage() {
   const [activeTab, setActiveTab] = useState<"items" | "low_stock">("items");
   const [showItemModal, setShowItemModal] = useState(false);
   const [showTxModal, setShowTxModal] = useState(false);
+  const [showUrlModal, setShowUrlModal] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [txType, setTxType] = useState<"addition" | "deduction">("addition");
   const [page, setPage] = useState(1);
+
+  // URL import state
+  const [urlInput, setUrlInput] = useState("");
+  const [scraped, setScraped] = useState<any>(null);
+  const [isScraping, setIsScraping] = useState(false);
+  const [scrapeError, setScrapeError] = useState("");
 
   const { data: itemsData, isLoading: itemsLoading } = useQuery({
     queryKey: ["inventory_items", page],
@@ -68,6 +75,39 @@ export default function InventoryPage() {
     onError: () => toast.error(isAr ? "خطأ في التسجيل" : "Error recording transaction"),
   });
 
+  const handleScrape = async () => {
+    if (!urlInput.trim()) return;
+    setIsScraping(true);
+    setScrapeError("");
+    setScraped(null);
+    try {
+      const { data } = await inventoryApi.scrapeUrl(urlInput.trim());
+      setScraped(data);
+    } catch (err: any) {
+      setScrapeError(err?.response?.data?.error || (isAr ? "تعذّر جلب البيانات" : "Failed to fetch product data"));
+    } finally {
+      setIsScraping(false);
+    }
+  };
+
+  const handleConfirmImport = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    createItem({
+      name: fd.get("name"),
+      supplier: fd.get("supplier"),
+      cost_per_unit: Number(fd.get("cost_per_unit")) || 0,
+      quantity: Number(fd.get("quantity")) || 0,
+      min_quantity: Number(fd.get("min_quantity")) || 5,
+      unit: fd.get("unit") || "piece",
+      category: fd.get("category") || null,
+      notes: fd.get("notes") || "",
+    });
+    setShowUrlModal(false);
+    setScraped(null);
+    setUrlInput("");
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -83,6 +123,9 @@ export default function InventoryPage() {
           </button>
           <button className="btn btn-secondary" onClick={() => { setTxType("deduction"); setSelectedItem(null); setShowTxModal(true); }}>
             <ArrowUpRight size={16} /> {isAr ? "صرف كمية" : "Stock Out"}
+          </button>
+          <button className="btn btn-secondary" onClick={() => { setShowUrlModal(true); setScraped(null); setScrapeError(""); setUrlInput(""); }} style={{ borderColor: "var(--brand-primary)", color: "var(--brand-primary)" }}>
+            <Link2 size={16} /> {isAr ? "استيراد من رابط" : "Import from URL"}
           </button>
           <button className="btn btn-primary" onClick={() => setShowItemModal(true)}>
             <Plus size={16} /> {isAr ? "صنف جديد" : "New Item"}
@@ -106,20 +149,20 @@ export default function InventoryPage() {
 
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: "var(--space-4)", borderBottom: "1px solid var(--border-light)", display: "flex", gap: "var(--space-4)", background: "var(--bg-elevated)" }}>
-          <button 
-            className={`btn btn-sm ${activeTab === "items" ? "btn-primary" : "btn-ghost"}`} 
+          <button
+            className={`btn btn-sm ${activeTab === "items" ? "btn-primary" : "btn-ghost"}`}
             onClick={() => setActiveTab("items")}
           >
             {isAr ? "كل الأصناف" : "All Items"}
           </button>
-          <button 
-            className={`btn btn-sm ${activeTab === "low_stock" ? "btn-primary" : "btn-ghost"}`} 
+          <button
+            className={`btn btn-sm ${activeTab === "low_stock" ? "btn-primary" : "btn-ghost"}`}
             style={activeTab === "low_stock" ? {} : { color: "var(--color-warning)" }}
             onClick={() => setActiveTab("low_stock")}
           >
             <AlertTriangle size={14} /> {isAr ? "نواقص" : "Low Stock"}
           </button>
-          
+
           <div style={{ marginLeft: isAr ? 0 : "auto", marginRight: isAr ? "auto" : 0, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <div style={{ position: "relative" }}>
               <Search size={14} style={{ position: "absolute", left: isAr ? "auto" : "10px", right: isAr ? "10px" : "auto", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
@@ -138,7 +181,7 @@ export default function InventoryPage() {
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "var(--space-4)", padding: "var(--space-4)" }}>
             {(activeTab === "items" ? items : lowStockItems)?.map((item: any) => (
-              <div 
+              <div
                 key={item.id}
                 style={{
                   background: "var(--bg-surface)",
@@ -271,6 +314,154 @@ export default function InventoryPage() {
                 <button type="submit" className="btn btn-primary" disabled={isCreatingItem}>{isAr ? "حفظ" : "Save"}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* URL IMPORT MODAL */}
+      {showUrlModal && (
+        <div className="modal-backdrop">
+          <div className="modal animate-scale-in" style={{ maxWidth: "620px" }}>
+            <div className="modal-header">
+              <h2 className="modal-title" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Link2 size={20} /> {isAr ? "استيراد منتج من رابط" : "Import Product from URL"}
+              </h2>
+              <button className="btn btn-ghost btn-sm" onClick={() => setShowUrlModal(false)}><X size={20} /></button>
+            </div>
+
+            <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+              <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                <input
+                  type="url"
+                  className="form-input"
+                  placeholder="https://eprintp.com/product/..."
+                  value={urlInput}
+                  onChange={(e) => { setUrlInput(e.target.value); setScrapeError(""); setScraped(null); }}
+                  onKeyDown={(e) => e.key === "Enter" && handleScrape()}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  className="btn btn-primary"
+                  disabled={isScraping || !urlInput.trim()}
+                  onClick={handleScrape}
+                  style={{ whiteSpace: "nowrap" }}
+                >
+                  {isScraping ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Search size={16} />}
+                  {isAr ? "جلب البيانات" : "Fetch"}
+                </button>
+              </div>
+
+              {scrapeError && (
+                <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "var(--radius-md)", padding: "var(--space-3)", color: "#dc2626", fontSize: "0.9rem" }}>
+                  {scrapeError}
+                </div>
+              )}
+
+              {scraped && (
+                <form id="url-import-form" onSubmit={handleConfirmImport} style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+                  <div style={{ display: "flex", gap: "var(--space-4)", background: "var(--bg-elevated)", borderRadius: "var(--radius-md)", padding: "var(--space-4)", border: "1px solid var(--border-subtle)" }}>
+                    {scraped.image_url ? (
+                      <img src={scraped.image_url} alt="" style={{ width: "90px", height: "90px", objectFit: "contain", borderRadius: "var(--radius-sm)", background: "#fff", flexShrink: 0 }} onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    ) : (
+                      <div style={{ width: "90px", height: "90px", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-subtle)", borderRadius: "var(--radius-sm)", flexShrink: 0 }}>
+                        <ImageIcon size={28} style={{ color: "var(--text-muted)" }} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginBottom: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
+                        <ExternalLink size={11} />
+                        <a href={scraped.source_url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--brand-primary)", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{scraped.supplier}</a>
+                      </div>
+                      <p style={{ margin: "0 0 4px", fontWeight: 700, fontSize: "1rem", color: "var(--text-primary)" }}>{scraped.name}</p>
+                      {scraped.description && (
+                        <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-secondary)" }}>{scraped.description.slice(0, 150)}{scraped.description.length > 150 ? "…" : ""}</p>
+                      )}
+                    </div>
+                    {scraped.price != null && (
+                      <div style={{ flexShrink: 0, textAlign: "right" }}>
+                        <p style={{ margin: 0, fontSize: "0.7rem", color: "var(--text-muted)" }}>{isAr ? "السعر" : "Price"}</p>
+                        <p style={{ margin: 0, fontWeight: 800, fontSize: "1.15rem", color: "var(--brand-primary)" }}>
+                          {scraped.price} {scraped.extra?.currency || ""}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {scraped.extra && Object.keys(scraped.extra).filter((k: string) => k !== "currency").length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                      {Object.entries(scraped.extra).filter(([k]: [string, unknown]) => k !== "currency").map(([k, v]: [string, unknown]) => (
+                        <span key={k} style={{ fontSize: "0.75rem", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", borderRadius: "20px", padding: "2px 10px", color: "var(--text-secondary)" }}>
+                          <strong>{k}:</strong> {String(v)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <hr style={{ border: "none", borderTop: "1px solid var(--border-subtle)", margin: 0 }} />
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 600 }}>
+                    {isAr ? "راجع البيانات وعدّل إن احتجت:" : "Review and adjust before saving:"}
+                  </p>
+
+                  <div>
+                    <label className="form-label">{isAr ? "اسم الصنف" : "Item Name"} *</label>
+                    <input type="text" name="name" className="form-input" required defaultValue={scraped.name} />
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+                    <div>
+                      <label className="form-label">{isAr ? "المورّد" : "Supplier"}</label>
+                      <input type="text" name="supplier" className="form-input" defaultValue={scraped.supplier} />
+                    </div>
+                    <div>
+                      <label className="form-label">{isAr ? "التكلفة للوحدة" : "Cost per Unit"}</label>
+                      <input type="number" step="0.01" name="cost_per_unit" className="form-input" defaultValue={scraped.price ?? 0} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--space-3)" }}>
+                    <div>
+                      <label className="form-label">{isAr ? "الكمية" : "Initial Qty"}</label>
+                      <input type="number" step="0.01" name="quantity" className="form-input" defaultValue={0} required />
+                    </div>
+                    <div>
+                      <label className="form-label">{isAr ? "الحد الأدنى" : "Min Qty"}</label>
+                      <input type="number" step="0.01" name="min_quantity" className="form-input" defaultValue={5} required />
+                    </div>
+                    <div>
+                      <label className="form-label">{isAr ? "الوحدة" : "Unit"}</label>
+                      <input type="text" name="unit" className="form-input" defaultValue="piece" required />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="form-label">{isAr ? "التصنيف" : "Category"}</label>
+                    <select name="category" className="form-input">
+                      <option value="">{isAr ? "بدون تصنيف" : "No Category"}</option>
+                      {categories?.map((c: any) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="form-label">{isAr ? "ملاحظات" : "Notes"}</label>
+                    <textarea name="notes" className="form-input" rows={2} defaultValue={scraped.description || ""} />
+                  </div>
+                </form>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowUrlModal(false)}>
+                {isAr ? "إلغاء" : "Cancel"}
+              </button>
+              {scraped && (
+                <button type="submit" form="url-import-form" className="btn btn-primary" disabled={isCreatingItem}>
+                  {isCreatingItem ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={16} />}
+                  {isAr ? "حفظ في المخزون" : "Save to Inventory"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

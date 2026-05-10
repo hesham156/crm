@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, usersApi } from "@/lib/api";
-import { X, Search, Filter, Upload, MoreHorizontal, Check, Zap, Mail, Calendar, Grid, ChevronDown, User, Truck } from "lucide-react";
+import { X, Search, Filter, Upload, MoreHorizontal, Check, Zap, Mail, Calendar, Grid, ChevronDown, User, Truck, History, AlertCircle, CheckCircle, MinusCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface AutomationsModalProps {
@@ -159,7 +159,7 @@ function TriggerValueSelector({
 // ─── Main Component ──────────────────────────────────────────────────────
 export default function AutomationsModal({ boardId, onClose }: AutomationsModalProps) {
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"board" | "templates">("board");
+  const [activeTab, setActiveTab] = useState<"board" | "templates" | "history">("board");
   const [configuringTemplate, setConfiguringTemplate] = useState<any>(null);
   const [builderParams, setBuilderParams] = useState({
     triggerField:        "client_status",  // which field triggers
@@ -180,6 +180,12 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
   const { data: board } = useQuery({
     queryKey: ["board", boardId],
     queryFn: async () => { const { data } = await tasksApi.board(boardId); return data; },
+  });
+
+  const { data: logsData } = useQuery({
+    queryKey: ["automation-logs", boardId],
+    queryFn: async () => { const { data } = await tasksApi.automationLogs(boardId); return data; },
+    enabled: activeTab === "history",
   });
 
   const { data: boards } = useQuery({
@@ -465,6 +471,7 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
           <div style={{ display: "flex", background: "#2d3748", borderRadius: "var(--radius-md)", padding: "2px" }}>
             <button style={{ background: activeTab === "templates" ? "#1e1e1e" : "transparent", color: "#fff", border: "none", padding: "var(--space-2) var(--space-4)", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }} onClick={() => setActiveTab("templates")}>Create</button>
             <button style={{ background: activeTab === "board" ? "#4f46e5" : "transparent", color: "#fff", border: "none", padding: "var(--space-2) var(--space-4)", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600 }} onClick={() => setActiveTab("board")}>Manage / {automations.length}</button>
+            <button style={{ background: activeTab === "history" ? "#0891b2" : "transparent", color: "#fff", border: "none", padding: "var(--space-2) var(--space-4)", borderRadius: "var(--radius-sm)", cursor: "pointer", fontSize: "0.85rem", fontWeight: 600, display: "flex", alignItems: "center", gap: "4px" }} onClick={() => setActiveTab("history")}><History size={13} /> Run History</button>
           </div>
           <button className="btn btn-ghost" onClick={onClose} style={{ color: "#a0aec0" }}><X size={20} /></button>
         </div>
@@ -472,7 +479,72 @@ export default function AutomationsModal({ boardId, onClose }: AutomationsModalP
         {/* Content */}
         <div style={{ flex: 1, overflowY: "auto", padding: "var(--space-6)" }}>
 
-          {activeTab === "board" ? (
+          {activeTab === "history" ? (
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
+                <h3 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>Automation Run History</h3>
+                <span style={{ fontSize: "0.8rem", color: "#a0aec0" }}>{(logsData?.results || logsData || []).length} runs recorded</span>
+              </div>
+
+              {!(logsData?.results || logsData || []).length ? (
+                <div style={{ textAlign: "center", padding: "60px 0", color: "#a0aec0" }}>
+                  <History size={40} style={{ marginBottom: "12px", opacity: 0.4 }} />
+                  <p>No automation runs yet. Runs will appear here once automations are triggered.</p>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
+                  {(logsData?.results || logsData || []).map((log: any) => {
+                    const statusIcon = log.status === "success"
+                      ? <CheckCircle size={16} color="#22c55e" />
+                      : log.status === "skipped"
+                      ? <MinusCircle size={16} color="#a0aec0" />
+                      : <AlertCircle size={16} color="#ef4444" />;
+
+                    const statusColor = log.status === "success" ? "#22c55e" : log.status === "skipped" ? "#a0aec0" : "#ef4444";
+
+                    return (
+                      <div key={log.id} style={{ background: "#222a42", border: "1px solid #2d3748", borderRadius: "10px", padding: "var(--space-3) var(--space-4)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1, minWidth: 0 }}>
+                            {statusIcon}
+                            <span style={{ fontWeight: 600, fontSize: "0.9rem", color: "#e2e8f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {log.task_title || log.trigger_payload?.task_title || "Unknown task"}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: "0.72rem", color: "#718096", whiteSpace: "nowrap", marginLeft: "12px" }}>
+                            {new Date(log.triggered_at).toLocaleString("ar-EG", { dateStyle: "short", timeStyle: "short" })}
+                          </span>
+                        </div>
+
+                        <div style={{ fontSize: "0.8rem", color: "#a0aec0", marginBottom: "6px" }}>
+                          {renderFormattedText(log.automation_label || "")}
+                        </div>
+
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                          {(log.actions_executed || []).map((act: any, i: number) => (
+                            <span key={i} style={{
+                              fontSize: "0.7rem", padding: "2px 8px", borderRadius: "20px",
+                              background: act.status === "success" ? "#14532d" : act.status === "skipped" ? "#374151" : "#7f1d1d",
+                              color: act.status === "success" ? "#86efac" : act.status === "skipped" ? "#9ca3af" : "#fca5a5",
+                              fontWeight: 600,
+                            }}>
+                              {act.type}{act.detail ? `: ${act.detail}` : ""}
+                            </span>
+                          ))}
+                        </div>
+
+                        {log.error_message && (
+                          <div style={{ marginTop: "6px", fontSize: "0.75rem", color: "#ef4444", background: "#1a0a0a", padding: "4px 8px", borderRadius: "6px" }}>
+                            {log.error_message}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : activeTab === "board" ? (
             <>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
                 <h3 style={{ fontSize: "1.5rem", fontWeight: 700, margin: 0 }}>Manage your board automations</h3>

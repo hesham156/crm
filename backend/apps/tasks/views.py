@@ -14,9 +14,9 @@ from .serializers import (
     BoardSerializer, ColumnSerializer, TaskSerializer,
     TaskDetailSerializer, CommentSerializer, TimeLogSerializer,
     TaskAttachmentSerializer, TagSerializer, BoardAutomationSerializer,
-    BoardCustomFieldSerializer, SprintSerializer
+    BoardCustomFieldSerializer, SprintSerializer, AutomationLogSerializer
 )
-from .models import BoardAutomation, TaskActivity
+from .models import BoardAutomation, TaskActivity, AutomationLog
 from apps.accounts.permissions import IsAdminOrManager
 
 
@@ -669,3 +669,19 @@ class GlobalTaskTrackerView(APIView):
             })
 
         return Response(result)
+
+
+class AutomationLogListView(generics.ListAPIView):
+    serializer_class = AutomationLogSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        board_id = self.kwargs.get("board_id")
+        qs = AutomationLog.objects.select_related("automation", "task").filter(
+            automation__board_id=board_id
+        )
+        automation_id = self.request.query_params.get("automation_id")
+        if automation_id:
+            qs = qs.filter(automation_id=automation_id)
+        return qs[:200]
+

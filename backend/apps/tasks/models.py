@@ -280,6 +280,30 @@ class BoardCustomField(models.Model):
         return f"{self.board.name} → {self.name}"
 
 
+class AutomationLog(models.Model):
+    STATUS_CHOICES = [
+        ("success", "Success"),
+        ("failed", "Failed"),
+        ("skipped", "Skipped"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    automation = models.ForeignKey(
+        BoardAutomation, on_delete=models.CASCADE, related_name="logs"
+    )
+    task = models.ForeignKey(
+        Task, on_delete=models.SET_NULL, null=True, blank=True, related_name="automation_logs"
+    )
+    triggered_at = models.DateTimeField(auto_now_add=True)
+    trigger_payload = models.JSONField(default=dict)
+    actions_executed = models.JSONField(default=list)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="success")
+    error_message = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-triggered_at"]
+
+
 class TaskActivity(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="activities")

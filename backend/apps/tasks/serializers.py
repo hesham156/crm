@@ -1,7 +1,7 @@
 from rest_framework import serializers
 # pyrefly: ignore [missing-import]
 from apps.accounts.serializers import UserListSerializer
-from .models import Board, Column, Task, Comment, TimeLog, TaskAttachment, Tag, BoardAutomation, TaskActivity, BoardCustomField, Sprint
+from .models import Board, Column, Task, Comment, TimeLog, TaskAttachment, Tag, BoardAutomation, TaskActivity, BoardCustomField, Sprint, AutomationLog
 
 
 class TaskActivitySerializer(serializers.ModelSerializer):
@@ -21,6 +21,23 @@ class BoardAutomationSerializer(serializers.ModelSerializer):
             "actions", "label_text", "is_active", "created_at"
         ]
         read_only_fields = ["created_at", "board"]
+
+
+class AutomationLogSerializer(serializers.ModelSerializer):
+    automation_label = serializers.CharField(source="automation.label_text", read_only=True)
+    task_title = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AutomationLog
+        fields = [
+            "id", "automation", "automation_label", "task", "task_title",
+            "triggered_at", "trigger_payload", "actions_executed",
+            "status", "error_message",
+        ]
+        read_only_fields = fields
+
+    def get_task_title(self, obj):
+        return obj.trigger_payload.get("task_title", "") if obj.trigger_payload else ""
 
 
 class TagSerializer(serializers.ModelSerializer):

@@ -172,6 +172,10 @@ export const tasksApi = {
 
   adminOverview: () => apiClient.get("/tasks/admin-overview/"),
   taskTracker: (params?: Record<string, unknown>) => apiClient.get("/tasks/tracker/", { params }),
+  automationLogs: (boardId: string, automationId?: string) =>
+    apiClient.get(`/tasks/boards/${boardId}/automation-logs/`, {
+      params: automationId ? { automation_id: automationId } : {},
+    }),
 };
 
 // ─── CRM ──────────────────────────────────────────────────────────────────
@@ -207,6 +211,9 @@ export const notificationsApi = {
 // ─── Analytics ────────────────────────────────────────────────────────────
 export const analyticsApi = {
   dashboard: () => apiClient.get("/analytics/dashboard/"),
+  timePerUser: (days = 30) => apiClient.get("/analytics/time-per-user/", { params: { days } }),
+  overdueTasks: () => apiClient.get("/analytics/overdue-tasks/"),
+  revenueTrend: (months = 6) => apiClient.get("/analytics/revenue-trend/", { params: { months } }),
 };
 
 // ─── Design ───────────────────────────────────────────────────────────────
@@ -235,6 +242,7 @@ export const inventoryApi = {
   transactions: (params?: Record<string, unknown>) => apiClient.get("/inventory/transactions/", { params }),
   createTransaction: (data: unknown) => apiClient.post("/inventory/transactions/", data),
   lowStock: () => apiClient.get("/inventory/reports/low-stock/"),
+  scrapeUrl: (url: string) => apiClient.post("/inventory/scrape-url/", { url }),
 };
 
 // ─── Integrations (Google Sheets → CRM) ──────────────────────────────────────
